@@ -1,0 +1,24 @@
+[03-Nov-2025 09:22:56 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'albums' already exists in /home/anpa3906/public_html/install/done.php:44
+Stack trace:
+#0 /home/anpa3906/public_html/install/done.php(44): mysqli_query()
+#1 {main}
+  thrown in /home/anpa3906/public_html/install/done.php on line 44
+[03-Nov-2025 09:31:10 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'albums' already exists in /home/anpa3906/public_html/install/done.php:44
+Stack trace:
+#0 /home/anpa3906/public_html/install/done.php(44): mysqli_query()
+#1 {main}
+  thrown in /home/anpa3906/public_html/install/done.php on line 44
+[03-Nov-2025 10:11:15 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'EXISTSCREATE TABLE IF NOT EXISTS `post_tags` (
+  `id` int(11) NOT NULL,
+  `po...' at line 1 in /home/anpa3906/public_html/install/done.php:44
+Stack trace:
+#0 /home/anpa3906/public_html/install/done.php(44): mysqli_query()
+#1 {main}
+  thrown in /home/anpa3906/public_html/install/done.php on line 44
+[03-Nov-2025 10:27:33 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'CREATE TABLE `categories` (
+  `id` int(11) NOT NULL,
+  `category` varchar(255...' at line 6 in /home/anpa3906/public_html/install/done.php:44
+Stack trace:
+#0 /home/anpa3906/public_html/install/done.php(44): mysqli_query()
+#1 {main}
+  thrown in /home/anpa3906/public_html/install/done.php on line 44
