@@ -1,5 +1,19 @@
 # phpBlog v2.4
-phpBlog - News, Blog & Magazine CMS
+phpBlog - Multi-Purpose CMS for Blogs, Portals, Magazines & More
+
+## About phpBlog
+
+phpBlog is a **multi-purpose Content Management System (CMS)** designed to be clean, simple, lightweight, responsive and user-friendly. It can be used for a wide variety of websites including:
+
+* **Blogs** - Personal or professional blogging platforms
+* **Portals** - Community and information portals
+* **Company Websites** - Corporate and business websites
+* **Agency Websites** - Creative and marketing agency sites
+* **Magazines** - Online magazines and publications
+* **Newspapers** - News and media websites
+* **And many more** - Any content-driven website
+
+With its comprehensive feature set and modern architecture, phpBlog provides all the tools you need to create engaging, secure, and performant websites.
 
 ## Améliorations (Version 2.8.1)
 
