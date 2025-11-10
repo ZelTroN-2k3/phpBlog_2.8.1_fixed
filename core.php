@@ -1862,6 +1862,15 @@ function sidebar() {
         });
     });
     </script>
+    <?php
+        // --- NOUVEL AJOUT ÉTAPE 2 ---
+        // Charger le script d'interaction uniquement sur la page post.php
+        $current_page = basename($_SERVER['SCRIPT_NAME']);
+        if ($current_page == 'post.php') {
+            echo '<script src="assets/js/post-interactions.js"></script>';
+        }
+        // --- FIN AJOUT ---
+        ?>    
     </body>
 </html>
 <?php

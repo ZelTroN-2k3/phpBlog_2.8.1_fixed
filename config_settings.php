@@ -3,8 +3,8 @@
   'sitename' => 'phpBlog',
   'description' => 'Content Management System',
   'email' => 'zeltron2K3@gmail.com',
-  'gcaptcha_sitekey' => '6LcAef4rAAAAAHs05H946Mcoid1m_x-yqsMe_iUf',
-  'gcaptcha_secretkey' => '6LcAef4rAAAAAJZ7Ue2PDp4-biTh5arB_rrT_lnP',
+  'gcaptcha_sitekey' => '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
+  'gcaptcha_secretkey' => '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe',
   'head_customcode' => '',
   'facebook' => 'https://www.facebook.com/',
   'instagram' => '',
@@ -19,6 +19,6 @@
   'sidebar_position' => 'Right',
   'posts_per_row' => '2',
   'theme' => 'Bootstrap 5',
-  'background_image' => 'uploads/other/bg_1762699856_1230.jpg',
+  'background_image' => '',
   'posts_per_page' => 4,
 ); ?>
