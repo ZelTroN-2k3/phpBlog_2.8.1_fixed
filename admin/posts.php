@@ -1,65 +1,7 @@
 <?php
 include "header.php";
 
-// --- NOUVELLE LOGIQUE POUR LES ACTIONS EN MASSE ---
-if (isset($_POST['apply_bulk_action'])) {
-    validate_csrf_token();
-    $action = $_POST['bulk_action'];
-    $post_ids = $_POST['post_ids'] ?? [];
-
-    if (!empty($action) && !empty($post_ids)) {
-        // Crée une chaîne de placeholders (?,?,?) pour la requête IN
-        $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
-        $types = str_repeat('i', count($post_ids));
-
-        if ($action == 'publish') {
-            $stmt = mysqli_prepare($connect, "UPDATE posts SET active = 'Yes' WHERE id IN ($placeholders)");
-            mysqli_stmt_bind_param($stmt, $types, ...$post_ids);
-            mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
-        } elseif ($action == 'draft') {
-            // "Draft" est le statut pour les brouillons
-            $stmt = mysqli_prepare($connect, "UPDATE posts SET active = 'Draft' WHERE id IN ($placeholders)");
-            mysqli_stmt_bind_param($stmt, $types, ...$post_ids);
-            mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
-        } elseif ($action == 'delete') {
-            // Supprimer toutes les données associées (commentaires, tags, favoris, likes)
-            
-            $stmt_comments = mysqli_prepare($connect, "DELETE FROM comments WHERE post_id IN ($placeholders)");
-            mysqli_stmt_bind_param($stmt_comments, $types, ...$post_ids);
-            mysqli_stmt_execute($stmt_comments);
-            mysqli_stmt_close($stmt_comments);
-            
-            $stmt_tags = mysqli_prepare($connect, "DELETE FROM post_tags WHERE post_id IN ($placeholders)");
-            mysqli_stmt_bind_param($stmt_tags, $types, ...$post_ids);
-            mysqli_stmt_execute($stmt_tags);
-            mysqli_stmt_close($stmt_tags);
-
-            $stmt_likes = mysqli_prepare($connect, "DELETE FROM post_likes WHERE post_id IN ($placeholders)");
-            mysqli_stmt_bind_param($stmt_likes, $types, ...$post_ids);
-            mysqli_stmt_execute($stmt_likes);
-            mysqli_stmt_close($stmt_likes);
-            
-            $stmt_favs = mysqli_prepare($connect, "DELETE FROM user_favorites WHERE post_id IN ($placeholders)");
-            mysqli_stmt_bind_param($stmt_favs, $types, ...$post_ids);
-            mysqli_stmt_execute($stmt_favs);
-            mysqli_stmt_close($stmt_favs);
-
-            // Finalement, supprimer les articles
-            $stmt_posts = mysqli_prepare($connect, "DELETE FROM posts WHERE id IN ($placeholders)");
-            mysqli_stmt_bind_param($stmt_posts, $types, ...$post_ids);
-            mysqli_stmt_execute($stmt_posts);
-            mysqli_stmt_close($stmt_posts);
-        }
-        echo '<meta http-equiv="refresh" content="0; url=posts.php">';
-        exit;
-    }
-}
-// --- FIN DE LA LOGIQUE EN MASSE ---
-
-
-// --- LOGIQUE D'APPROBATION/REJET ---
+// --- NOUVELLE LOGIQUE D'APPROBATION/REJET ---
 if ($user['role'] == 'Admin') {
     // Approuver un article
     if (isset($_GET['approve-id'])) {
@@ -104,18 +46,6 @@ if (isset($_GET['delete-id'])) {
     mysqli_stmt_close($stmt_tags);
     // FIN MODIFICATION
 
-    // --- AJOUT : Supprimer les likes et favoris associés ---
-    $stmt_likes = mysqli_prepare($connect, "DELETE FROM `post_likes` WHERE post_id=?");
-    mysqli_stmt_bind_param($stmt_likes, "i", $id);
-    mysqli_stmt_execute($stmt_likes);
-    mysqli_stmt_close($stmt_likes);
-    
-    $stmt_favs = mysqli_prepare($connect, "DELETE FROM `user_favorites` WHERE post_id=?");
-    mysqli_stmt_bind_param($stmt_favs, "i", $id);
-    mysqli_stmt_execute($stmt_favs);
-    mysqli_stmt_close($stmt_favs);
-    // --- FIN AJOUT ---
-
     $stmt = mysqli_prepare($connect, "DELETE FROM `posts` WHERE id=?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
@@ -133,7 +63,7 @@ if (isset($_GET['delete-id'])) {
             <div class="col-sm-6">
                 <h1 class="m-0"><i class="fas fa-list"></i> Posts</h1>
             </div>
-            <div class_name="col-sm-6">
+            <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
                     <li class="breadcrumb-item"><a href="dashboard.php">Home</a></li>
                     <li class="breadcrumb-item active">Posts</li>
@@ -196,35 +126,27 @@ if (isset($_GET['edit-id'])) {
         $publish_at  = $_POST['publish_at'];
 
         if (@$_FILES['image']['name'] != '') {
-            // ... (les vérifications getimagesize et size restent les mêmes) ...
+            $target_dir    = "uploads/posts/";
+            $target_file   = $target_dir . basename($_FILES["image"]["name"]);
+            $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
+            $uploadOk = 1;
+            $check = getimagesize($_FILES["image"]["tmp_name"]);
+            if ($check !== false) { $uploadOk = 1; } else { $uploadOk = 0; }
+            if ($_FILES["image"]["size"] > 10000000) { $uploadOk = 0; }
             if ($uploadOk == 1) {
-                // --- MODIFICATION ---
                 $string     = "0123456789wsderfgtyhjuk";
                 $new_string = str_shuffle($string);
-                // Chemin de destination SANS extension
-                $destination_path = "../uploads/posts/image_$new_string"; 
-                
-                $optimized_path = optimize_and_save_image($_FILES["image"]["tmp_name"], $destination_path);
-                
-                if ($optimized_path) {
-                    // Enlever le préfixe '../' pour le stockage en BDD
-                    $image = str_replace('../', '', $optimized_path);
-                } else {
-                    $uploadOk = 0; 
-                    echo '<div class="alert alert-danger">An error occurred while processing the image.</div>';
-                }
-                // --- FIN MODIFICATION ---
+                $location   = "../uploads/posts/image_$new_string.$imageFileType";
+                move_uploaded_file($_FILES["image"]["tmp_name"], $location);
+                $image = 'uploads/posts/image_' . $new_string . '.' . $imageFileType . '';
             }
         }
-        
-        if ($uploadOk == 1) { // S'assurer que uploadOk est vérifié
         
         $stmt = mysqli_prepare($connect, "UPDATE posts SET title=?, slug=?, image=?, active=?, featured=?, category_id=?, content=?, download_link=?, github_link=?, publish_at=?, created_at=NOW() WHERE id=?");
         mysqli_stmt_bind_param($stmt, "sssssissssi", $title, $slug, $image, $active, $featured, $category_id, $content, $download_link, $github_link, $publish_at, $id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
-        }
-        
+
         // --- GESTION DES TAGS (MISE À JOUR) ---
         $post_id = $id; 
         $new_tag_slugs = []; 
@@ -321,12 +243,12 @@ echo strlen($row['title']);
 				</p>
 				
                 <p>
-				<label>Status</label><br />
+				<label>Statut</label><br />
 				<select name="active" class="form-control" required>
-					<option value="Draft" <?php if (trim($row['active']) == "Draft") { echo 'selected'; } ?>>Draft</option>
-                    <option value="Yes" <?php if (trim($row['active']) == "Yes") { echo 'selected'; } ?>>Published</option>
-					<option value="No" <?php if (trim($row['active']) == "No") { echo 'selected'; } ?>>Inactive</option>
-                    <option value="Pending" <?php if (trim($row['active']) == "Pending") { echo 'selected'; } ?>>Pending</option>
+					<option value="Draft" <?php if (trim($row['active']) == "Draft") { echo 'selected'; } ?>>Draft (brouillon)</option>
+                    <option value="Yes" <?php if (trim($row['active']) == "Yes") { echo 'selected'; } ?>>Published (public)</option>
+					<option value="No" <?php if (trim($row['active']) == "No") { echo 'selected'; } ?>>Inactive (caché)</option>
+                    <option value="Pending" <?php if (trim($row['active']) == "Pending") { echo 'selected'; } ?>>Pending (en attente)</option>
 				</select>
 				</p>
                 <p>
@@ -400,24 +322,19 @@ echo html_entity_decode($row['content']);
                 <a href="add_post.php" class="btn btn-primary"><i class="fa fa-edit"></i> Add Post</a>
             </h3>
         </div>
-        
-        <form action="" method="post">
-            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-            <div class="card-body"> 
-                <table class="table table-bordered table-hover" id="dt-basic" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th style="width: 10px;"><input type="checkbox" id="select-all"></th>
-                            <th>Image</th>
-                            <th>Title</th>
-                            <th>Author</th>
-                            <th>Date</th>
-                            <th>Statut</th> 
-                            <th>Category</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+		<div class="card-body"> <table class="table table-bordered table-hover" id="dt-basic" style="width:100%">
+				<thead>
+					<tr>
+						<th>Image</th>
+						<th>Title</th>
+						<th>Author</th>
+						<th>Date</th>
+						<th>Statut</th> 
+                        <th>Category</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
 <?php
 // Requête optimisée avec JOIN pour récupérer toutes les informations nécessaires
 $query = "
@@ -444,7 +361,6 @@ while ($row = mysqli_fetch_assoc($sql)) {
     
     echo '
 					<tr>
-                        <td><input type="checkbox" name="post_ids[]" value="' . $row['id'] . '"></td>
 						<td>';
     if ($row['image'] != '') {
         echo '
@@ -461,11 +377,9 @@ while ($row = mysqli_fetch_assoc($sql)) {
 		echo '<span class="badge bg-success">Published</span>';
 	} else if ($row['active'] == 'Pending') {
         echo '<span class="badge bg-info">Pending</span>';
-    } else if ($row['active'] == 'Draft') {
+    } else {
 		echo '<span class="badge bg-warning">Draft</span>';
-	} else {
-        echo '<span class="badge bg-danger">' . htmlspecialchars($row['active']) . '</span>';
-    }
+	}
 	echo '</td>
                         <td>' . htmlspecialchars($row['category_name'] ?? 'N/A') . '</td>
 					<td>';
@@ -484,40 +398,20 @@ while ($row = mysqli_fetch_assoc($sql)) {
 				</tbody>
 			</table>
 		</div>
-        
-        <div class="card-footer">
-            <div class="mt-0">
-                <select name="bulk_action" class="form-control" style="width: 200px; display: inline-block;">
-                    <option value="">Mass actions</option>
-                    <option value="publish">Publish</option>
-                    <option value="draft">Set as Draft</option>
-                    <option value="delete">Delete</option>
-                </select>
-                <button type="submit" name="apply_bulk_action" class="btn btn-primary">Apply</button>
-            </div>
-        </div>
-        </form> </div>
+	</div>
 
     </div></section>
 <script>
 $(document).ready(function() {
 	
-    // MODIFICATION : Initialiser DataTable dans une variable et ajouter columnDefs
-	var table = $('#dt-basic').DataTable({
+    // Note : Le script d'activation de DataTables est maintenant dans footer.php
+    // Mais nous devons surcharger l'ordre par défaut spécifiquement pour CETTE table
+	$('#dt-basic').DataTable({
         "responsive": true, 
         "lengthChange": false, 
         "autoWidth": false,
-		"order": [[ 4, "desc" ]], // Ordonner par date (maintenant 5ème colonne, index 4)
-        "columnDefs": [
-            { "orderable": false, "targets": 0 } // Désactiver le tri sur la colonne 0 (checkbox)
-        ]
+		"order": [[ 3, "desc" ]] // Ordonner par date (4ème colonne)
 	});
-	
-    // MODIFICATION : Ajout de la logique "select-all"
-    $('#select-all').on('click', function(){
-        var rows = table.rows({ 'search': 'applied' }).nodes();
-        $('input[type="checkbox"]', rows).prop('checked', this.checked);
-    });
 	
 	// L'activation de Summernote est dans footer.php
 

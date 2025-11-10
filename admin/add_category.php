@@ -34,10 +34,8 @@ if (isset($_POST['add'])) {
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
         
-        // --- MODIFICATION : Remplacement de <meta> par header() ---
-        header("Location: categories.php");
-        exit;
-        // --- FIN MODIFICATION ---
+        echo '<meta http-equiv="refresh" content="0;url=categories.php">';
+        exit; 
     }
 }
 ?>
@@ -46,7 +44,7 @@ if (isset($_POST['add'])) {
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-sm-6">
-                <h1 class="m-0"><i class="fas fa-plus"></i> Add Category</h1>
+                <h1 class="m-0"><i class="fas fa-folder-plus"></i> Add Category</h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
