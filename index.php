@@ -43,8 +43,10 @@ if ($count > 0) {
         
         $image = "";
         if($row2['image'] != "") {
+            // 1. Si une image existe dans la base de données
             $image = '<img src="' . htmlspecialchars($row2['image']) . '" alt="' . htmlspecialchars($row2['title']) . '" class="d-block w-100" height="400" style="object-fit: cover;">';
         } else {
+            // 2. Sinon, afficher l'image "No Image"
             $image = '<svg class="bd-placeholder-img bd-placeholder-img-lg d-block w-100" height="400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="No Image" preserveAspectRatio="xMidYMid slice" focusable="false">
 						<title>' . htmlspecialchars($row2['title']) . '</title>
 						<rect width="100%" height="100%" fill="#555"></rect>
@@ -96,8 +98,10 @@ if ($count <= 0) {
         
         $image = "";
         if($row['image'] != "") {
+            // 1. Si une image existe dans la base de données
             $image = '<img src="' . htmlspecialchars($row['image']) . '" alt="' . htmlspecialchars($row['title']) . '" class="card-img-top" width="100%" height="208em" style="object-fit: cover;"/>';
         } else {
+            // 2. Sinon, afficher l'image "No Image"
             $image = '<svg class="bd-placeholder-img card-img-top" width="100%" height="13em" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail" preserveAspectRatio="xMidYMid slice" focusable="false">
             <title>No Image</title><rect width="100%" height="100%" fill="#55595c"/>
             <text x="40%" y="50%" fill="#eceeef" dy=".3em">No Image</text></svg>';

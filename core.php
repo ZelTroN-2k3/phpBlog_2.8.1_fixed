@@ -31,6 +31,94 @@ if (empty($_SESSION['csrf_token'])) {
 
 include "config.php";
 
+// --- NOUVEAU : Charger les paramètres depuis la BDD (structure à 1 ligne) ---
+$settings = array(); // Initialiser le tableau
+$stmt_settings = mysqli_prepare($connect, "SELECT * FROM settings WHERE id = 1");
+
+if ($stmt_settings) { // Vérifier si la préparation a réussi
+    
+    mysqli_stmt_execute($stmt_settings);
+    $result_settings = mysqli_stmt_get_result($stmt_settings);
+
+    if (!$result_settings) {
+        die("Erreur critique : Impossible d'obtenir les résultats des paramètres.");
+    }
+
+    // On récupère la ligne unique de paramètres
+    // Plus besoin de boucle while !
+    $settings = mysqli_fetch_assoc($result_settings);
+    
+    mysqli_stmt_close($stmt_settings);
+
+    if (!$settings) {
+        // Cela arrive si la table est vide (l'installation a échoué)
+         die("Erreur critique : La table des paramètres est vide.");
+    }
+
+} else {
+    // La préparation de la requête a échoué
+    die("Erreur critique : Impossible de préparer la requête des paramètres.");
+}
+// --- FIN DE LA MODIFICATION ---
+
+// --- NOUVEAU : VÉRIFICATION DU MODE MAINTENANCE ---
+if ($settings['maintenance_mode'] == 'On') {
+
+    // 1. Vérifier si l'utilisateur est un admin
+    $is_admin = false;
+    if (isset($_SESSION['sec-username'])) {
+        $uname = $_SESSION['sec-username'];
+        $stmt_admin_check = mysqli_prepare($connect, "SELECT role FROM `users` WHERE username=? AND role='Admin'");
+        mysqli_stmt_bind_param($stmt_admin_check, "s", $uname);
+        mysqli_stmt_execute($stmt_admin_check);
+        $result_admin_check = mysqli_stmt_get_result($stmt_admin_check);
+        if (mysqli_num_rows($result_admin_check) > 0) {
+            $is_admin = true;
+        }
+        mysqli_stmt_close($stmt_admin_check);
+    }
+
+    // 2. Vérifier si on est sur la page de login admin
+    $current_script = basename($_SERVER['SCRIPT_NAME']);
+    $is_admin_login_page = ($current_script == 'index.php' && strpos($_SERVER['REQUEST_URI'], '/admin/') !== false);
+    $is_admin_folder = (strpos($_SERVER['REQUEST_URI'], '/admin/') !== false);
+
+    // 3. Si le mode est ON et que l'utilisateur N'EST PAS un admin
+    //    ET qu'il n'essaie PAS d'accéder à l'admin...
+    if (!$is_admin && !$is_admin_folder) {
+
+        // Charger HTMLPurifier pour le message
+        $purifier = get_purifier();
+        $safe_message = $purifier->purify($settings['maintenance_message']);
+
+        // Afficher la page de maintenance et arrêter le script
+        die("
+            <!DOCTYPE html>
+            <html lang='fr'>
+            <head>
+                <meta charset='utf-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1'>
+                <title>" . htmlspecialchars($settings['maintenance_title']) . "</title>
+                <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>
+                <style>
+                    body { background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; height: 100vh; }
+                    .maintenance-card { max-width: 600px; width: 100%; padding: 2rem; border: 0; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.05); }
+                </style>
+            </head>
+            <body>
+                <div class='card maintenance-card text-center'>
+                    <h1 class='h3 mb-3'>" . htmlspecialchars($settings['maintenance_title']) . "</h1>
+                    <div class_='text-muted'>
+                        {$safe_message}
+                    </div>
+                </div>
+            </body>
+            </html>
+        ");
+    }
+}
+// --- FIN VÉRIFICATION MAINTENANCE ---
+
 // --- MODIFICATION MODE SOMBRE (DÉFINITION GLOBALE) ---
 // Définir les variables de thème ici pour les rendre globales
 $light_theme_name = $settings['theme'];
@@ -184,7 +272,7 @@ function generateSeoURL($string, $random_numbers = 1, $wordLimit = 8) {
 }
 
 // Obtenir une instance unique de HTMLPurifier
-function get_purifier() {
+/*function get_purifier() {
     static $purifier = null;
     if ($purifier === null) {
         // S'assurer que le chemin est correct par rapport à core.php
@@ -192,6 +280,30 @@ function get_purifier() {
         $config = HTMLPurifier_Config::createDefault();
         // Vous pouvez configurer le purifier ici si nécessaire
         // Par exemple : $config->set('HTML.Allowed', 'p,b,a[href],i');
+        $purifier = new HTMLPurifier($config);
+    }
+    return $purifier;
+}*/
+
+function get_purifier() {
+    static $purifier = null;
+    if ($purifier === null) {
+        $config = HTMLPurifier_Config::createDefault();
+        $config->set('Cache.SerializerPath', __DIR__ . '/cache');
+        
+        // --- NOS 3 MODIFICATIONS ---
+        
+        // 1. Autoriser l'attribut 'style' sur les images
+        $config->set('HTML.Allowed', 'p,b,i,u,s,a[href|title],ul,ol,li,br,img[src|alt|title|width|height|style],span[style],blockquote,pre,h1,h2,h3,h4,h5,h6,table,thead,tbody,tr,th,td');
+        
+        // 2. Autoriser les images 'data:' (pour que l'image s'affiche)
+        $config->set('URI.AllowedSchemes', array('http' => true, 'https' => true, 'mailto' => true, 'ftp' => true, 'data' => true));
+        
+        // 3. Autoriser 'width' et 'height' dans l'attribut style (pour que la taille soit respectée)
+        $config->set('CSS.AllowedProperties', 'width,height,text-decoration,color,background-color,font-weight,font-style,text-align');
+        
+        // --- FIN DES MODIFICATIONS ---
+        
         $purifier = new HTMLPurifier($config);
     }
     return $purifier;
@@ -776,6 +888,28 @@ function head()
     // Rendre $connect, $logged, $rowu, $settings accessibles
     // AJOUT DES VARIABLES GLOBALES DE THÈME
     global $connect, $logged, $rowu, $settings, $light_theme_url, $dark_theme_url;
+    
+    // --- DÉBUT DE LA LOGIQUE DE TITRE ET DESCRIPTION ---
+    global $current_page, $pagetitle, $description;
+
+    $display_title = '';
+    $display_description = '';
+    
+    if ($current_page == 'index.php') {
+        // Page d'accueil : utiliser le titre SEO global et la description globale
+        $display_title = $settings['meta_title'];
+        $display_description = $settings['description'];
+    } else {
+        // Autres pages : utiliser le titre et la description spécifiques à la page
+        // S'assurer que les variables existent pour éviter les erreurs
+        $display_title = (isset($pagetitle) ? $pagetitle : 'Page') . ' - ' . $settings['sitename'];
+        $display_description = isset($description) ? $description : $settings['description'];
+    }
+    
+    // Construction de l'URL canonique (BEAUCOUP mieux pour le SEO)
+    $current_page_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+    
+    // --- FIN DE LA LOGIQUE ---
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -995,18 +1129,37 @@ function head()
 		<meta name="description" content="' . htmlspecialchars($description) . '" />';
     }
 ?>
+
+        <title><?php echo htmlspecialchars($display_title); ?></title>
+        <meta name="description" content="<?php echo htmlspecialchars($display_description); ?>" />
         
-        <meta name="author" content="Antonov_WEB" />
-		<meta name="generator" content="phpBlog" />
-        <meta name="robots" content="index, follow, all" />
-        <link rel="shortcut icon" href="assets/img/favicon.png" type="image/png" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+        
+        <meta property="og:title" content="<?php echo htmlspecialchars($display_title); ?>" />
+        <meta property="og:description" content="<?php echo htmlspecialchars($display_description); ?>" />
+        <meta property="og:site_name" content="<?php echo htmlspecialchars($settings['sitename']); ?>" />
+        <meta property="og:type" content="website" />
+        
+        <meta property="og:url" content="<?php echo htmlspecialchars($current_page_url); ?>" />
+        <link rel="canonical" href="<?php echo htmlspecialchars($current_page_url); ?>" />
+
+        <link rel="icon" type="image/png" href="<?php echo htmlspecialchars($settings['favicon_url']); ?>" />
+        <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($settings['apple_touch_icon_url']); ?>" />
+
+        <meta name="author" content="<?php echo htmlspecialchars($settings['meta_author']); ?>" />
+        <meta name="generator" content="<?php echo htmlspecialchars($settings['meta_generator']); ?>" />
+        <meta name="robots" content="<?php echo htmlspecialchars($settings['meta_robots']); ?>" />
+        
+        <link rel="stylesheet" id="theme-light" href="<?php echo htmlspecialchars($light_theme_url); ?>">
+        <link rel="stylesheet" id="theme-dark" href="<?php echo htmlspecialchars($dark_theme_url); ?>" disabled>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars($settings['site_url']); ?>/assets/css/phpblog.css?v=<?php echo time(); ?>">
+
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-
         <link href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" type="text/css" rel="stylesheet"/>
-        
 		<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
-		
 		<link href="assets/css/phpblog.css" rel="stylesheet">
 		<script src="assets/js/phpblog.js"></script>
 <?php
@@ -1052,10 +1205,11 @@ if($settings['background_image'] != "") {
         </style>
         
 <?php
-// Le décodage Base64 est conservé car c'est ainsi que vous l'avez stocké
-echo base64_decode($settings['head_customcode']);
+    // Code personnalisé de l'admin (avec vérification On/Off)
+    if ($settings['head_customcode_enabled'] == 'On' && !empty($settings['head_customcode'])) {
+        echo base64_decode($settings['head_customcode']);
+    }
 ?>
-
 </head>
 
 <body <?php 
@@ -1195,6 +1349,26 @@ if ($rowu['role'] == 'Admin') {
 }
 ?>
 				</ul>
+<?php
+// Logique pour définir l'icône et le texte
+$maintenance_status = $settings['maintenance_mode'] ?? 'Off';
+$status_icon = '';
+$status_text = '';
+
+if ($maintenance_status == 'On') {
+    $status_icon = 'fas fa-circle text-danger'; // Icône Font Awesome (rouge)
+    $status_text = 'Maintenance ON';
+} else {
+    $status_icon = 'fas fa-circle text-success'; // Icône Font Awesome (verte)
+    $status_text = 'Maintenance OFF';
+}
+?>
+                <li class="nav-item">
+                    <a class="nav-link text-secondary" href="admin/maintenance.php" title="Manage maintenance mode">
+                        <i class="<?php echo $status_icon; ?> me-1" style="font-size: 0.8em;"></i>
+                        <span><?php echo $status_text; ?></span>
+                    </a>
+                </li>                
 		</nav>
 	</div>
 <?php
@@ -1231,7 +1405,7 @@ if (isset($_GET['q'])) {
 		</div>
 	</header>
 	
-	<nav class="navbar nav-underline navbar-expand-lg py-2 bg-light border-bottom">
+	<nav class="navbar nav-underline navbar-expand-lg py-2 bg-light border-bottom <?php echo ($settings['sticky_header'] == 'On' ? 'sticky-top' : ''); ?>">
 		<div class="<?php
 if ($settings['layout'] == 'Wide') {
 	echo 'container-fluid';
@@ -1718,23 +1892,21 @@ function sidebar() {
 		
 <?php
 }    
-    function footer()
-    {
-        // AJOUT DES VARIABLES GLOBALES DE THÈME
-        global $phpblog_version, $connect, $settings, $light_theme_url, $dark_theme_url, $purifier;
-    ?>
-    		</div>
-    <?php
-    // Requête simple sans variable externe
+function footer()
+{
+    // Rendre les variables globales accessibles
+    global $phpblog_version, $connect, $settings, $light_theme_url, $dark_theme_url, $purifier;
+?>
+    		</div> <?php
+    // Boucle pour les Widgets de pied de page (INCHANGÉE)
     $run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'footer' AND active = 'Yes' ORDER BY id ASC");
-    while ($row = mysqli_fetch_assoc($run)) {
-    	// Initialiser Purifier si ce n'est pas déjà fait
+    if (mysqli_num_rows($run) > 0) {
         if (!isset($purifier)) {
-            require_once __DIR__ . '/vendor/htmlpurifier/library/HTMLPurifier.auto.php';
-            $config = HTMLPurifier_Config::createDefault();
-            $purifier = new HTMLPurifier($config);
+            // S'assurer que get_purifier() est appelée si $purifier n'existe pas
+            $purifier = get_purifier();
         }
-    	echo '		
+        while ($row = mysqli_fetch_assoc($run)) {
+            echo '		
     				<div class="card mt-3">
     					<div class="card-header">' . htmlspecialchars($row['title']) . '</div>
     					<div class="card-body">
@@ -1742,135 +1914,259 @@ function sidebar() {
     					</div>
     			</div>
     	';
+        }
     }
     ?>
-    	</div>	
-	<footer class="footer border-top bg-dark text-light px-4 py-3 mt-3">
-		<div class="row">
-			<div class="col-md-2 mb-3">
-				<p class="d-block">&copy; <?php
-		echo date("Y") .' '. htmlspecialchars($settings['sitename']);
-?></p>
-				<p><a href="rss" target="_blank"><i class="fas fa-rss-square"></i> RSS Feed</a></p>
-				<p><a href="sitemap" target="_blank"><i class="fas fa-sitemap"></i> XML Sitemap</a></p>
-				<p class="d-block small">
-					<a href="https://codecanyon.net/item/phpblog-powerful-blog-cms/5979801?ref=Antonov_WEB" target="_blank"><i>Powered by <b>phpBlog v<?php echo htmlspecialchars($phpblog_version); ?></b></i></a>
-				</p>
-			</div>
-			<div class="col-md-6 mb-3">
-				<h5><i class="fa fa-info-circle"></i> About</h5>
-<?php
-	echo htmlspecialchars($settings['description']);
-?>
-			</div>
-			<div class="col-md-4 mb-3">
-				<h5><i class="fa fa-envelope"></i> Contact</h5>
-					<div class="col-12">
-						<a href="mailto:<?php
-    echo htmlspecialchars($settings['email']);
-?>" target="_blank" class="btn btn-secondary">
-							<strong><i class="fa fa-envelope"></i><span>&nbsp; <?php
-    echo htmlspecialchars($settings['email']);
-?></span></strong></a>
-<?php
-    if ($settings['facebook'] != '') {
-?>
-						<a href="<?php
-        echo htmlspecialchars($settings['facebook']);
-?>" target="_blank" class="btn btn-primary">
-							<strong><i class="fab fa-facebook-square"></i>&nbsp; Facebook</strong></a>
-<?php
-    }
-    if ($settings['instagram'] != '') {
-?>
-						<a href="<?php
-        echo htmlspecialchars($settings['instagram']);
-?>" target="_blank" class="btn btn-warning">
-							<strong><i class="fab fa-instagram"></i>&nbsp; Instagram</strong></a>
-<?php
-    }
-    if ($settings['twitter'] != '') {
-?>
-						<a href="<?php
-        echo htmlspecialchars($settings['twitter']);
-?>" target="_blank" class="btn btn-info">
-							<strong><i class="fab fa-twitter-square"></i>&nbsp; Twitter</strong></a>
-<?php
-    }
-    if ($settings['youtube'] != '') {
-?>	
-						<a href="<?php
-        echo htmlspecialchars($settings['youtube']);
-?>" target="_blank" class="btn btn-danger">
-							<strong><i class="fab fa-youtube-square"></i>&nbsp; YouTube</strong></a>
-<?php
-    }
-	if ($settings['linkedin'] != '') {
-?>	
-						<a href="<?php
-        echo htmlspecialchars($settings['linkedin']);
-?>" target="_blank" class="btn btn-primary">
-							<strong><i class.="fab fa-linkedin"></i>&nbsp; LinkedIn</strong></a>
-<?php
-    }
-?>    
-					</div>
-					<div class="scroll-btn"><div class="scroll-btn-arrow"></div></div>
-			</div>
-		</div>
-	</footer>
+    	</div>	<footer class="bg-dark text-light pt-5 pb-3 mt-3">
+        <div class="<?php echo ($settings['layout'] == 'Wide') ? 'container-fluid' : 'container'; ?>">
+            <div class="row gy-4">
 
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <h5 class="text-uppercase fw-bold mb-4">
+                        <i class="far fa-newspaper me-2"></i> <?php echo htmlspecialchars($settings['sitename']); ?>
+                    </h5>
+                    <p class="text-white-50">
+                        <?php echo htmlspecialchars($settings['description']); ?>
+                    </p>
+                    <p class="text-white-50">
+                        <i class="bi bi-envelope me-2"></i> <?php echo htmlspecialchars($settings['email']); ?>
+                    </p>
+                </div>
+
+                <div class="col-lg-2 col-md-6 mb-4">
+                    <h5 class="text-uppercase fw-bold mb-4">Navigation</h5>
+                    <ul class="list-unstyled mb-0">
+                        <?php
+                        // Boucle pour récupérer les liens du menu (avec icônes)
+                        $menu_query = mysqli_query($connect, "SELECT * FROM `menu` WHERE active = 'Yes' ORDER BY id ASC");
+                        while ($menu_item = mysqli_fetch_assoc($menu_query)) {
+                            echo '<li class="mb-2">
+                                <a href="' . htmlspecialchars($menu_item['path']) . '" class="text-white-50 text-decoration-none">
+                                    <i class="fa ' . htmlspecialchars($menu_item['fa_icon']) . ' me-2" style="width: 1.2em;"></i> ' . htmlspecialchars($menu_item['page']) . '
+                                </a>
+                            </li>';
+                        }
+                        ?>
+                    </ul>
+                </div>
+
+                <div class="col-lg-2 col-md-6 mb-4">
+                    <h5 class="text-uppercase fw-bold mb-4">Suivez-nous</h5>
+                    <ul class="list-unstyled mb-0">
+                        <?php if ($settings['facebook'] != ''): ?>
+                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['facebook']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-facebook me-2"></i> Facebook</a></li>
+                        <?php endif; ?>
+                        <?php if ($settings['twitter'] != ''): ?>
+                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['twitter']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-twitter-x me-2"></i> Twitter</a></li>
+                        <?php endif; ?>
+                        <?php if ($settings['instagram'] != ''): ?>
+                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['instagram']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-instagram me-2"></i> Instagram</a></li>
+                        <?php endif; ?>
+                        <?php if ($settings['youtube'] != ''): ?>
+                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['youtube']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-youtube me-2"></i> YouTube</a></li>
+                        <?php endif; ?>
+                        <?php if ($settings['linkedin'] != ''): ?>
+                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['linkedin']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-linkedin me-2"></i> LinkedIn</a></li>
+                        <?php endif; ?>
+                    </ul>
+                </div>
+
+                <div class="col-lg-2 col-md-6 mb-4">
+                    <h5 class="text-uppercase fw-bold mb-4">Autres</h5>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <a href="rss.php" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-rss me-2"></i> Flux RSS</a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="sitemap.php" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-diagram-3 me-2"></i> Sitemap</a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="col-lg-2 col-md-6 mb-4 text-center text-lg-start">
+                    <h5 class="text-uppercase fw-bold mb-4">Logo</h5>
+                    <img src="<?php echo htmlspecialchars($settings['favicon_url']); ?>" alt="Logo" width="96" height="96">
+                </div>
+
+            </div>
+
+            <div class="text-center text-white-50 border-top border-secondary-subtle pt-3 mt-4">
+                <p class="small mb-0">
+                    &copy; <?php echo date("Y") .' '. htmlspecialchars($settings['sitename']); ?>. Tous droits réservés.
+                    <span class="mx-2">|</span>
+                    <i>Powered by <b>phpBlog v<?php echo htmlspecialchars($phpblog_version); ?></b></i>
+                </p>
+            </div>
+            
+             <div class="scroll-btn"><div class="scroll-btn-arrow"></div></div>
+            
+    </div>
+</footer>
+<?php
+global $current_page; // Récupérer le nom de la page actuelle (défini dans head())
+
+// 1. Déterminer la condition d'affichage de la page
+$page_condition = "display_pages = 'all'";
+if ($current_page == 'index.php') {
+    $page_condition = "(display_pages = 'all' OR display_pages = 'home')";
+}
+
+// 2. Préparer la requête pour chercher les popups actifs
+$popups_to_show = [];
+$stmt_popups = mysqli_prepare($connect, "
+    SELECT * FROM popups 
+    WHERE active = 'Yes' AND $page_condition
+");
+
+if ($stmt_popups) {
+    mysqli_stmt_execute($stmt_popups);
+    $result_popups = mysqli_stmt_get_result($stmt_popups);
+
+    while ($popup = mysqli_fetch_assoc($result_popups)) {
+        // 3. Vérifier si le popup a déjà été montré (pour la session)
+        $session_key = 'popup_shown_' . $popup['id'];
+        if ($popup['show_once_per_session'] == 'Yes' && isset($_SESSION[$session_key])) {
+            continue; // Ce popup a déjà été vu, on l'ignore
+        }
+
+        // Ajouter ce popup à la liste d'affichage
+        $popups_to_show[] = $popup;
+    }
+    mysqli_stmt_close($stmt_popups);
+}
+
+// 4. Boucler sur les popups à afficher et créer les Modals HTML
+if (!empty($popups_to_show)) {
+
+    // S'assurer que HTMLPurifier est prêt
+    $purifier = get_purifier();
+
+    foreach ($popups_to_show as $popup) {
+        $modal_id = 'popupModal' . (int)$popup['id'];
+        $safe_content = $purifier->purify($popup['content']);
+
+        // Extraire le titre du contenu si le titre du popup est vide
+        // (Nous utilisons le titre de la BDD pour le modal-title)
+        $modal_title = htmlspecialchars($popup['title']);
+
+        // Générer le HTML du Modal
+        echo "
+        <div class='modal fade' id='{$modal_id}' tabindex='-1' aria-labelledby='{$modal_id}Label' aria-hidden='true'>
+            <div class='modal-dialog modal-dialog-centered'>
+                <div class='modal-content'>
+                    <div class='modal-header'>
+                        <h5 class='modal-title' id='{$modal_id}Label'>{$modal_title}</h5>
+                        <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+                    </div>
+                    <div class='modal-body'>
+                        {$safe_content}
+                    </div>
+                    <div class='modal-footer'>
+                        <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ";
+    }
+}
+?>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Obtenir les éléments du DOM
         const themeSwitcherBtn = document.getElementById('theme-switcher-btn');
-        const themeLink = document.getElementById('theme-link');
+        const lightTheme = document.getElementById('theme-light');
+        const darkTheme = document.getElementById('theme-dark');
         const iconMoon = document.getElementById('theme-icon-moon');
         const iconSun = document.getElementById('theme-icon-sun');
 
-        // URLs des thèmes (doivent correspondre à celles du <head>)
-        // Ces variables sont maintenant globales et seront correctement "echo"
-        const lightThemeUrl = '<?php echo $light_theme_url; ?>';
-        const darkThemeUrl = '<?php echo $dark_theme_url; ?>';
-
-        // Fonction pour mettre à jour les icônes
-        function updateIcons(theme) {
+        // Fonction pour appliquer le thème
+        function updateTheme(theme) {
             if (theme === 'dark') {
-                iconMoon.style.display = 'none';
-                iconSun.style.display = 'inline-block';
+                lightTheme.disabled = true;
+                darkTheme.disabled = false;
+                if(iconMoon) iconMoon.style.display = 'none';
+                if(iconSun) iconSun.style.display = 'inline-block';
             } else {
-                iconMoon.style.display = 'inline-block';
-                iconSun.style.display = 'none';
+                lightTheme.disabled = false;
+                darkTheme.disabled = true;
+                if(iconMoon) iconMoon.style.display = 'inline-block';
+                if(iconSun) iconSun.style.display = 'none';
             }
         }
 
-        // Mettre à jour les icônes au chargement de la page
-        updateIcons(localStorage.getItem('theme'));
+        // Obtenir le thème actuel depuis le localStorage
+        let currentTheme = localStorage.getItem('theme');
+        if (!currentTheme) {
+            // Si rien n'est défini, utiliser 'light' par défaut
+            currentTheme = 'light';
+            localStorage.setItem('theme', currentTheme);
+        }
+        
+        // Appliquer le thème au chargement de la page
+        updateTheme(currentTheme);
 
         // Gérer le clic sur le bouton
-        themeSwitcherBtn.addEventListener('click', function () {
-            let currentTheme = localStorage.getItem('theme');
-            let newTheme = (currentTheme === 'dark') ? 'light' : 'dark';
-
-            // Changer le thème
-            themeLink.href = (newTheme === 'dark') ? darkThemeUrl : lightThemeUrl;
-            
-            // Sauvegarder le choix
-            localStorage.setItem('theme', newTheme);
-            
-            // Mettre à jour les icônes
-            updateIcons(newTheme);
-        });
+        if (themeSwitcherBtn) {
+            themeSwitcherBtn.addEventListener('click', function () {
+                let theme = localStorage.getItem('theme');
+                let newTheme = (theme === 'dark') ? 'light' : 'dark';
+                
+                // Appliquer le nouveau thème
+                updateTheme(newTheme);
+                
+                // Sauvegarder le choix
+                localStorage.setItem('theme', newTheme);
+            });
+        }
     });
     </script>
     <?php
-        // --- NOUVEL AJOUT ÉTAPE 2 ---
         // Charger le script d'interaction uniquement sur la page post.php
         $current_page = basename($_SERVER['SCRIPT_NAME']);
         if ($current_page == 'post.php') {
             echo '<script src="assets/js/post-interactions.js"></script>';
         }
-        // --- FIN AJOUT ---
-        ?>    
+    ?> 
+<?php
+    // --- NOUVEL AJOUT ÉTAPE 2 ---
+    // Charger le script d'interaction uniquement sur la page post.php
+    $current_page = basename($_SERVER['SCRIPT_NAME']);
+    if ($current_page == 'post.php') {
+        echo '<script src="assets/js/post-interactions.js"></script>';
+    }
+    // --- FIN AJOUT ---
+
+    // --- NOUVELLE LOGIQUE POPUP (Étape 6) ---
+    if (!empty($popups_to_show)) {
+        echo "<script>
+        document.addEventListener('DOMContentLoaded', function() {
+        ";
+
+        foreach ($popups_to_show as $popup) {
+            $modal_id = 'popupModal' . (int)$popup['id'];
+            $delay_ms = (int)$popup['delay_seconds'] * 1000;
+
+            // Lancer le script pour ce popup
+            echo "
+            setTimeout(function() {
+                var popupModal = new bootstrap.Modal(document.getElementById('{$modal_id}'), {});
+                popupModal.show();
+            }, {$delay_ms});
+            ";
+
+            // Marquer ce popup comme "vu" dans la session
+            if ($popup['show_once_per_session'] == 'Yes') {
+                $_SESSION['popup_shown_' . $popup['id']] = true;
+            }
+        }
+
+        echo "
+        });
+        </script>";
+    }
+    // --- FIN LOGIQUE POPUP ---
+    ?>    
     </body>
 </html>
 <?php

@@ -1,3 +1,25 @@
-Sitemap: /sitemap.php
 User-agent: *
+Sitemap: /sitemap.php
+
+# Bloquer les dossiers d'administration, d'installation et de dépendances
 Disallow: /admin/
+Disallow: /install/
+Disallow: /vendor/
+
+# Bloquer les fichiers de configuration et les points d'API
+Disallow: /core.php
+Disallow: /config.php
+Disallow: /ajax_favorite_post.php
+Disallow: /ajax_like_post.php
+Disallow: /ajax_submit_comment.php
+
+# Bloquer les pages de compte utilisateur et d'action
+Disallow: /login.php
+Disallow: /logout.php
+Disallow: /profile.php
+Disallow: /my-comments.php
+Disallow: /my-favorites.php
+Disallow: /my-posts.php
+Disallow: /edit-comment.php
+Disallow: /submit_post.php
+Disallow: /unsubscribe.php
