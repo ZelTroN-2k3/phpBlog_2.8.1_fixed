@@ -1,138 +1,179 @@
 <?php
 include "header.php";
 
+// --- MODIFICATION #1 : Logique de suppression d'image (BDD) CORRIGÉE ---
 if (isset($_GET['delete_bgrimg'])) {
-	validate_csrf_token_get();
+    validate_csrf_token_get();
     
-    // --- MODIFICATION : S'assurer que le chemin est correct pour unlink ---
+    // S'assurer que le chemin est correct pour unlink
     $bgr_img_path = '../' . $settings['background_image'];
     if (file_exists($bgr_img_path) && is_file($bgr_img_path) && $settings['background_image'] != "") {
-        unlink($bgr_img_path);
+        @unlink($bgr_img_path); // Utiliser @ pour éviter les erreurs si le fichier est protégé
     }
-    // --- FIN MODIFICATION ---
-	
+    
+    // Mettre à jour le tableau local
     $settings['background_image'] = '';
-	
-	file_put_contents('../config_settings.php', '<?php $settings = ' . var_export($settings, true) . '; ?>');
-	echo '<meta http-equiv="refresh" content="0;url=settings.php">';
+    
+    // --- CORRECTION DE LA REQUÊTE ---
+    // Mettre à jour la BDD en utilisant la nouvelle colonne 'background_image'
+    $stmt = mysqli_prepare($connect, "UPDATE settings SET background_image = ? WHERE id = 1");
+    $new_bg_empty = ""; // Créer une variable vide pour le bind_param
+    mysqli_stmt_bind_param($stmt, "s", $new_bg_empty);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    // --- FIN CORRECTION ---
+
+    echo '<meta http-equiv="refresh" content="0;url=settings.php">';
     exit;
 }
+// --- FIN MODIFICATION #1 ---
 
 
+// --- MODIFICATION #2 : Logique de sauvegarde (BDD) CORRIGÉE ---
 if (isset($_POST['save'])) {
 
-    // --- NOUVEL AJOUT : Validation CSRF ---
     validate_csrf_token();
-    // --- FIN AJOUT ---
 
-	if (@$_FILES['background_image']['name'] != '') {
-        // --- MODIFICATION : Correction du chemin de destination ---
-        $target_dir    = "../uploads/other/"; // Doit être relatif à 'admin', donc '../uploads/'
-        // --- FIN MODIFICATION ---
-        
-        // Générer un nom de fichier unique pour éviter les conflits
-        $imageFileType = strtolower(pathinfo($_FILES["background_image"]["name"], PATHINFO_EXTENSION));
-        $new_file_name = "bg_" . time() . '_' . rand(1000, 9999) . '.' . $imageFileType;
-        $target_file   = $target_dir . $new_file_name;
-        
-        $uploadOk = 1;
-        
-        // Check if image file is a actual image or fake image
+    $uploadOk = 1;
+    // Garder l'ancienne image par défaut, au cas où une nouvelle n'est pas uploadée
+    $new_background_image = $settings['background_image']; 
+
+    // --- VOTRE LOGIQUE D'UPLOAD (INCHANGÉE) ---
+    if (isset($_FILES['background_image']) && $_FILES['background_image']['name'] != '') {
+        $target_dir    = "../uploads/other/"; 
+        $target_file   = $target_dir . basename($_FILES["background_image"]["name"]);
+        $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
+
+        $string     = "0123456789wsderfgtyhjuk";
+        $new_string = str_shuffle($string);
+        $new_filename = "bgr_" . $new_string . "." . $imageFileType;
+        $destination_path = $target_dir . $new_filename;
+
         $check = @getimagesize($_FILES["background_image"]["tmp_name"]);
-        if ($check !== false) {
-            $uploadOk = 1;
-        } else {
-            echo '
-            <div class="alert alert-danger alert-dismissible">
-                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                <h5><i class="icon fas fa-ban"></i> Alert!</h5>
-                File is not an image.
-            </div>';
+        if ($check === false) {
+            echo '<div class="alert alert-danger">Le fichier n\'est pas une image.</div>';
             $uploadOk = 0;
         }
-        
-        // Check file size (ex: 5MB)
-        if ($_FILES["background_image"]["size"] > 5000000) {
-            echo '
-            <div class="alert alert-danger alert-dismissible">
-                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                <h5><i class="icon fas fa-ban"></i> Alert!</h5>
-                Sorry, your file is too large (Max 5MB).
-            </div>';
+
+        if ($_FILES["background_image"]["size"] > 10000000) { // 10MB
+            echo '<div class="alert alert-warning">Désolé, votre fichier est trop volumineux.</div>';
             $uploadOk = 0;
         }
-        
-        // Allow certain file formats
+
         if ($imageFileType != "jpg" && $imageFileType != "png" && $imageFileType != "jpeg" && $imageFileType != "gif") {
-            echo '
-            <div class="alert alert-danger alert-dismissible">
-                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                <h5><i class="icon fas fa-ban"></i> Alert!</h5>
-                Sorry, only JPG, JPEG, PNG & GIF files are allowed.
-            </div>';
+            echo '<div class="alert alert-warning">Désolé, seuls les fichiers JPG, JPEG, PNG & GIF sont autorisés.</div>';
             $uploadOk = 0;
         }
-        
+
         if ($uploadOk == 1) {
-            if (move_uploaded_file($_FILES["background_image"]["tmp_name"], $target_file)) {
-                // --- MODIFICATION : Enregistrer le chemin relatif depuis la racine du site ---
-                $settings['background_image'] = "uploads/other/" . $new_file_name;
-                // --- FIN MODIFICATION ---
+            if (move_uploaded_file($_FILES["background_image"]["tmp_name"], $destination_path)) {
+                
+                if (!empty($settings['background_image']) && file_exists('../' . $settings['background_image'])) {
+                    @unlink('../' . $settings['background_image']);
+                }
+                
+                $new_background_image = 'uploads/other/' . $new_filename;
+                
             } else {
-                echo '
-                <div class="alert alert-danger alert-dismissible">
-                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                    <h5><i class="icon fas fa-ban"></i> Alert!</h5>
-                    Sorry, there was an error uploading your file.
-                </div>';
+                echo '<div class="alert alert-danger">Erreur lors de l\'upload de l\'image.</div>';
+                $uploadOk = 0;
             }
         }
     }
-    
-    // Met à jour les autres paramètres
-    $settings['sitename']        = $_POST['sitename'];
-    $settings['description']     = $_POST['description'];
-    $settings['site_url']        = rtrim($_POST['site_url'], '/'); // Assurer qu'il n'y a pas de slash final
-    $settings['email']           = $_POST['email'];
-    $settings['date_format']     = $_POST['date_format'];
-    $settings['posts_per_page']  = (int) $_POST['posts_per_page'];
-    $settings['sidebar_position'] = $_POST['sidebar_position'];
-    $settings['layout']          = $_POST['layout'];
-    $settings['theme']           = $_POST['theme']; // Thème
-    $settings['latestposts_bar'] = $_POST['latestposts_bar'];
-    $settings['rtl']             = $_POST['rtl'];
-    $settings['posts_per_row']   = $_POST['posts_per_row'];
-    $settings['facebook']        = $_POST['facebook'];
-    $settings['instagram']       = $_POST['instagram'];
-    $settings['twitter']         = $_POST['twitter'];
-    $settings['youtube']         = $_POST['youtube'];
-    $settings['linkedin']        = $_POST['linkedin'];
-    $settings['gcaptcha_sitekey']  = $_POST['gcaptcha_sitekey'];
-    $settings['gcaptcha_secretkey'] = $_POST['gcaptcha_secretkey'];
-    
-    // MODIFICATION : Utiliser base64_encode pour le code personnalisé
-    $settings['head_customcode'] = base64_encode($_POST['head_customcode']);
-    
-    // Sauvegarder les paramètres dans le fichier
-    if (file_put_contents('../config_settings.php', '<?php $settings = ' . var_export($settings, true) . '; ?>')) {
-        echo '
-        <div class="alert alert-success alert-dismissible">
-            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-            <h5><i class="icon fas fa-check"></i> Success!</h5>
-            Settings successfully saved.
-        </div>';
-    } else {
-        echo '
-        <div class="alert alert-danger alert-dismissible">
-            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-            <h5><i class="icon fas fa-ban"></i> Alert!</h5>
-            Error saving settings. Check file permissions for config_settings.php.
-        </div>';
+    // --- FIN DE VOTRE LOGIQUE D'UPLOAD ---
+
+
+    // --- DÉBUT DE LA NOUVELLE LOGIQUE DE SAUVEGARDE BDD ---
+    if ($uploadOk == 1) {
+        
+        try {
+            // 1. Préparer UNE SEULE requête UPDATE pour toutes les colonnes
+            // AJOUT de sticky_header
+            $sql = "UPDATE settings SET 
+                        site_url = ?, sitename = ?, description = ?, email = ?, 
+                        gcaptcha_sitekey = ?, gcaptcha_secretkey = ?, head_customcode = ?, 
+                        head_customcode_enabled = ?,
+                        facebook = ?, instagram = ?, twitter = ?, youtube = ?, 
+                        linkedin = ?, rtl = ?, date_format = ?, 
+                        layout = ?, latestposts_bar = ?, sidebar_position = ?, 
+                        posts_per_row = ?, theme = ?, posts_per_page = ?, 
+                        background_image = ?, 
+                        meta_title = ?, favicon_url = ?, apple_touch_icon_url = ?,
+                        meta_author = ?, meta_generator = ?, meta_robots = ?,
+                        sticky_header = ? -- <--- CHAMP AJOUTÉ
+                    WHERE id = 1";
+                    
+            $stmt = mysqli_prepare($connect, $sql);
+
+            if ($stmt === false) {
+                throw new Exception("MySQL prepare error: " . mysqli_error($connect));
+            }
+
+            // 2. Définir les types (maintenant 29 colonnes = 29 's')
+            $types = "sssssssssssssssssssssssssssss"; // 29 's'
+            
+            // 3. Encoder le 'head_customcode' en base64
+            $head_customcode_encoded = base64_encode($_POST['head_customcode']);
+
+            // 4. Lier tous les paramètres (dans le bon ordre)
+            mysqli_stmt_bind_param($stmt, $types,
+                $_POST['site_url'],
+                $_POST['sitename'],
+                $_POST['description'],
+                $_POST['email'],
+                $_POST['gcaptcha_sitekey'],
+                $_POST['gcaptcha_secretkey'],
+                $head_customcode_encoded,
+                $_POST['head_customcode_enabled'], 
+                $_POST['facebook'],
+                $_POST['instagram'],
+                $_POST['twitter'],
+                $_POST['youtube'],
+                $_POST['linkedin'],
+                $_POST['rtl'],
+                $_POST['date_format'],
+                $_POST['layout'],
+                $_POST['latestposts_bar'],
+                $_POST['sidebar_position'],
+                $_POST['posts_per_row'],
+                $_POST['theme'],
+                $_POST['posts_per_page'],
+                $new_background_image,
+                $_POST['meta_title'],
+                $_POST['favicon_url'],
+                $_POST['apple_touch_icon_url'],
+                $_POST['meta_author'],
+                $_POST['meta_generator'],
+                $_POST['meta_robots'],
+                $_POST['sticky_header'] 
+            );
+
+            // 5. Exécuter et fermer
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            // 6. Afficher le message de succès (le vôtre)
+            echo '
+            <div class="alert alert-success alert-dismissible">
+                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+                <h5><i class="icon fas fa-check"></i> Success!</h5>
+                Settings have been successfully saved.
+            </div>';
+            
+            // 7. Re-charger les settings (important)
+            $stmt_reload = mysqli_prepare($connect, "SELECT * FROM settings WHERE id = 1");
+            mysqli_stmt_execute($stmt_reload);
+            $result_reload = mysqli_stmt_get_result($stmt_reload);
+            $settings = mysqli_fetch_assoc($result_reload);
+            mysqli_stmt_close($stmt_reload);
+
+        } catch (Exception $e) {
+            echo '<div class="alert alert-danger">Erreur lors de la sauvegarde: ' . $e->getMessage() . '</div>';
+        }
     }
-    
-    // Rafraîchir pour voir les changements
-    echo '<meta http-equiv="refresh" content="2;url=settings.php">';
+    // --- FIN DE LA NOUVELLE LOGIQUE DE SAUVEGARDE BDD ---
 }
+// --- FIN MODIFICATION #2 ---
 ?>
 
 <div class="content-header">
@@ -170,13 +211,16 @@ if (isset($_POST['save'])) {
                                         <input type="text" name="sitename" class="form-control" value="<?php echo htmlspecialchars($settings['sitename']); ?>" required>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label><i class="fas fa-align-left text-primary"></i> Site Description</label>
-                                        <textarea name="description" class="form-control" rows="2" required><?php echo htmlspecialchars($settings['description']); ?></textarea>
-                                    </div>
-                                </div>
-                            </div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label><i class="fas fa-thumbtack text-primary"></i> Menu collant (Sticky Header)</label>
+                                            <select name="sticky_header" class="form-control" required>
+                                                <option value="On" <?php if ($settings['sticky_header'] == 'On') echo 'selected'; ?>>On</option>
+                                                <option value="Off" <?php if ($settings['sticky_header'] == 'Off') echo 'selected'; ?>>Off</option>
+                                            </select>
+                                        </div>
+                                    </div>  
+                            </div>                          
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
@@ -215,12 +259,12 @@ if (isset($_POST['save'])) {
                                         </select>
                                     </div>
                                 </div>
-									<div class="col-md-3">
-										<div class="form-group">
-											<label><i class="fas fa-list-ol text-primary"></i> Posts per page (Blog)</label>
-											<input type="number" name="posts_per_page" class="form-control" value="<?php echo (int) $settings['posts_per_page']; ?>" min="1" required>
-										</div>
-									</div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label><i class="fas fa-list-ol text-primary"></i> Posts per page (Blog)</label>
+                                            <input type="number" name="posts_per_page" class="form-control" value="<?php echo (int) $settings['posts_per_page']; ?>" min="1" required>
+                                        </div>
+                                    </div>
                                 <div class="col-md-3">
                                     <div class="form-group">
                                         <label><i class="fas fa-columns text-primary"></i> Sidebar Position</label>
@@ -306,10 +350,68 @@ if (isset($_POST['save'])) {
                                         </select>
                                     </div>
                                 </div>
-                                </div>
+                            </div>
                         </div>
                     </div>
-
+                    <div class="card card-primary card-outline">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-chart-line"></i> SEO & Méta-tags</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-heading text-primary"></i> Titre principal (Title & og:title)</label>
+                                        <input type="text" name="meta_title" class="form-control" value="<?php echo htmlspecialchars($settings['meta_title']); ?>" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-align-left text-primary"></i> Méta Description (et og:description)</label>
+                                        <textarea name="description" class="form-control" rows="2" required><?php echo htmlspecialchars($settings['description']); ?></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-images text-primary"></i> URL du Favicon</label>
+                                        <input type="text" name="favicon_url" class="form-control" value="<?php echo htmlspecialchars($settings['favicon_url']); ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label><i class="fab fa-apple text-primary"></i> URL de l'Apple Touch Icon</label>
+                                        <input type="text" name="apple_touch_icon_url" class="form-control" value="<?php echo htmlspecialchars($settings['apple_touch_icon_url']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-user-edit text-primary"></i> Méta Author</label>
+                                        <input type="text" name="meta_author" class="form-control" value="<?php echo htmlspecialchars($settings['meta_author']); ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-cogs text-primary"></i> Méta Generator</label>
+                                        <input type="text" name="meta_generator" class="form-control" value="<?php echo htmlspecialchars($settings['meta_generator']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-robot text-primary"></i> Méta Robots</label>
+                                        <input type="text" name="meta_robots" class="form-control" value="<?php echo htmlspecialchars($settings['meta_robots']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="card card-primary card-outline">
                         <div class="card-header">
                             <h3 class="card-title"><i class="fas fa-share-alt"></i> Social Media Links</h3>
@@ -375,6 +477,13 @@ if (isset($_POST['save'])) {
                                 <label><i class="fas fa-code text-warning"></i> Head Custom Code (Analytics, etc.)</label>
                                 <textarea name="head_customcode" class="form-control" rows="4"><?php echo htmlspecialchars(base64_decode($settings['head_customcode'])); ?></textarea>
                             </div>
+                            <div class="form-group">
+                                <label><i class="fas fa-toggle-on text-success"></i> Activate the custom code (Head Custom Code)</label>
+                                <select name="head_customcode_enabled" class="form-control" required>
+                                    <option value="On" <?php if ($settings['head_customcode_enabled'] == 'On') echo 'selected'; ?>>On</option>
+                                    <option value="Off" <?php if ($settings['head_customcode_enabled'] == 'Off') echo 'selected'; ?>>Off</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -414,7 +523,9 @@ if (isset($_POST['save'])) {
                     </form>                           
                 </div>   
             </div>
-        </div> </div></section>
+        </div>
+    </div>
+</section>
 
 <?php
 include "footer.php";

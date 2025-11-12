@@ -366,6 +366,18 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a href="maintenance.php" class="nav-link <?php echo ($current_page == 'maintenance.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-tools"></i>
+                                    <p>Site Maintenance</p>
+                                </a>
+                            </li>                            
+                            <li class="nav-item">
+                                <a href="rss_imports.php" class="nav-link <?php echo ($current_page == 'rss_imports.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-rss"></i>
+                                    <p>Import RSS</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a href="messages.php" class="nav-link <?php if (in_array($current_page, ['messages.php', 'read_message.php'])) echo 'active'; ?>">
                                     <i class="nav-icon fas fa-envelope"></i>
                                     <p>Messages
@@ -409,13 +421,13 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
                                 <a href="add_post.php" class="nav-link <?php if ($current_page == 'add_post.php') echo 'active'; ?>">
-                                    <i class="far fa-circle nav-icon"></i>
+                                    <i class="nav-icon fas fa-edit"></i>
                                     <p>Add Post</p>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a href="posts.php" class="nav-link <?php if ($current_page == 'posts.php') echo 'active'; ?>">
-                                    <i class="far fa-circle nav-icon"></i>
+                                    <i class="nav-icon fas fa-list"></i>
                                     <p>
                                         All Posts
                                         
@@ -454,6 +466,31 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                             </li>
                             <?php endif; ?>
                         </ul>
+                    </li>
+
+                    <li class="nav-item <?php echo (in_array($current_page, ['popups.php', 'add_popup.php', 'edit_popup.php'])) ? 'menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['popups.php', 'add_popup.php', 'edit_popup.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-window-maximize"></i>
+                            <p>
+                                Popups
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="popups.php" class="nav-link <?php echo ($current_page == 'popups.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-window-maximize"></i>
+                                    <p>All Popups</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_popup.php" class="nav-link <?php echo ($current_page == 'add_popup.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus-circle"></i>
+                                    <p>Add Popup</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
 
                     <?php if ($user['role'] == "Admin"): ?>
                     <?php
@@ -472,7 +509,7 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
                                 <a href="add_page.php" class="nav-link <?php if ($current_page == 'add_page.php') echo 'active'; ?>">
-                                    <i class="far fa-circle nav-icon"></i>
+                                    <i class="nav-icon fas fa-file-alt"></i>
                                     <p>Add Page</p>
                                 </a>
                             </li>
@@ -502,20 +539,20 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
                                 <a href="add_image.php" class="nav-link <?php if ($current_page == 'add_image.php') echo 'active'; ?>">
-                                    <i class="far fa-circle nav-icon"></i>
+                                    <i class="nav-icon fas fa-camera-retro"></i>
                                     <p>Add Image</p>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a href="gallery.php" class="nav-link <?php if ($current_page == 'gallery.php') echo 'active'; ?>">
-                                    <i class="far fa-circle nav-icon"></i>
+                                    <i class="nav-icon fas fa-images"></i>
                                     <p>All Images <span class="badge badge-info right"><?php echo $total_images_count; ?></span></p>
                                 </a>
                             </li>
                             <?php if ($user['role'] == "Admin"): ?>
                             <li class="nav-item">
                                 <a href="albums.php" class="nav-link <?php if (in_array($current_page, ['albums.php', 'add_album.php'])) echo 'active'; ?>">
-                                    <i class="far fa-circle nav-icon"></i>
+                                    <i class="nav-icon fas fa-list-ol"></i>
                                     <p>Albums <span class="badge badge-info right"><?php echo $total_albums_count; ?></span></p>
                                 </a>
                             </li>
