@@ -82,10 +82,15 @@ if ($settings['maintenance_mode'] == 'On') {
     $current_script = basename($_SERVER['SCRIPT_NAME']);
     $is_admin_login_page = ($current_script == 'index.php' && strpos($_SERVER['REQUEST_URI'], '/admin/') !== false);
     $is_admin_folder = (strpos($_SERVER['REQUEST_URI'], '/admin/') !== false);
+    
+    // --- NOUVELLE EXCEPTION ---
+    $is_special_admin_login = ($current_script == 'admin.php');
+    // --- FIN ---
 
     // 3. Si le mode est ON et que l'utilisateur N'EST PAS un admin
     //    ET qu'il n'essaie PAS d'accéder à l'admin...
-    if (!$is_admin && !$is_admin_folder) {
+    //    ET qu'il n'essaie PAS d'accéder au login spécial...
+    if (!$is_admin && !$is_admin_folder && !$is_special_admin_login) {
 
         // Charger HTMLPurifier pour le message
         $purifier = get_purifier();
@@ -2121,13 +2126,6 @@ if (!empty($popups_to_show)) {
         }
     });
     </script>
-    <?php
-        // Charger le script d'interaction uniquement sur la page post.php
-        $current_page = basename($_SERVER['SCRIPT_NAME']);
-        if ($current_page == 'post.php') {
-            echo '<script src="assets/js/post-interactions.js"></script>';
-        }
-    ?> 
 <?php
     // --- NOUVEL AJOUT ÉTAPE 2 ---
     // Charger le script d'interaction uniquement sur la page post.php

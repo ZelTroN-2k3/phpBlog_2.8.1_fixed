@@ -1,10 +1,11 @@
 User-agent: *
 Sitemap: /sitemap.php
 
-# Bloquer les dossiers d'administration, d'installation et de dépendances
+# Bloquer les dossiers d'administration, d'installation et de dependances
 Disallow: /admin/
 Disallow: /install/
 Disallow: /vendor/
+Disallow: /cache/
 
 # Bloquer les fichiers de configuration et les points d'API
 Disallow: /core.php
