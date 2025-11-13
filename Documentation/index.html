@@ -1,14 +1,8 @@
 <!doctype html>
-<!--[if IE 6 ]><html lang="en-us" class="ie6"> <![endif]-->
-<!--[if IE 7 ]><html lang="en-us" class="ie7"> <![endif]-->
-<!--[if IE 8 ]><html lang="en-us" class="ie8"> <![endif]-->
-<!--[if (gt IE 7)|!(IE)]><!-->
 <html lang="en-us">
-<!--<![endif]-->
-
 <head>
     <meta charset="utf-8">
-    <title>phpBlog – Content Management System</title>
+    <title>phpBlog v2.9.1 – Professional CMS Documentation</title>
 
     <link rel="stylesheet" href="assets/css/style.css" media="all">
     <style>
@@ -98,6 +92,23 @@
             color: #DDDDDD;
             border-top: 1px solid #444444;
         }
+        
+        code {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-left: 3px solid #0088CC;
+            color: #666;
+            page-break-inside: avoid;
+            font-family: monospace;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 1.6em;
+            max-width: 100%;
+            overflow: auto;
+            padding: 1em 1.5em;
+            display: block;
+            word-wrap: break-word;
+        }
     </style>
 </head>
 
@@ -105,27 +116,25 @@
     <div id="documenter_sidebar">
         <a href="#documenter_cover" id="documenter_logo"></a>
         <ul id="documenter_nav">
-            <li><a class="current" href="#documenter_cover">phpBlog</a></li>
+            <li><a class="current" href="#documenter_cover">phpBlog v2.9.1</a></li>
 
             <li><a href="#description" title="Description">Description</a></li>
             <li><a href="#features" title="Features">Features</a></li>
             <li><a href="#requirements" title="Requirements">Requirements</a></li>
             <li><a href="#installation" title="Installation">Installation</a></li>
-            <li><a href="#recaptcha" title="ReCaptcha v2">ReCaptcha v2 - Configuration</a></li>
-			<li><a href="#sources_and_credits" title="Sources and Credits">Sources and Credits</a></li>
+            <li><a href="#rss_cron" title="Automated RSS">Automated RSS (Cron)</a></li>
+            <li><a href="#updates" title="Update Instructions">Update Instructions</a></li>
+            <li><a href="#recaptcha" title="ReCaptcha v2">ReCaptcha v2</a></li>
+			<li><a href="#credits" title="Credits">Credits</a></li>
 
         </ul>
     </div>
     <div id="documenter_content">
         <section id="documenter_cover">
-            <h1>phpBlog</h1>
-            <h2>Content Management System</h2>
-            <div id="documenter_buttons">
-                <a href="https://codecanyon.net/item/phpblog-powerful-blog-cms/5979801?ref=Antonov_WEB" target="_blank" class="btn btn-primary btn-large">Item Details</a>
-				<a href="https://codecanyon.net/item/phpblog-powerful-blog-cms/5979801/support/contact?ref=Antonov_WEB" target="_blank" class="btn btn-large">Support</a>
-            </div>
+            <h1>phpBlog v2.9.1</h1>
+            <h2>Professional Content Management System</h2>
             <hr>
-            <p>phpBlog is a multi-purpose CMS (Content Management System). It can be used for blogs, portals, company and agency websites, magazines, newspapers and many other. It is clean, simple, lightweight, responsive and user-friendly.</p>
+            <p>phpBlog is a modern, secure, and feature-rich CMS. Version 2.9 brings enterprise-level features like Mega Menu, RSS Auto-Blogging, Popup Manager, and advanced security hardening.</p>
 		</section>
 
         <section id="description">
@@ -133,9 +142,9 @@
                 <h3>Description</h3>
                 <hr class="notop">
             </div>
-            <p>phpBlog is a multi-purpose CMS (Content Management System). It can be used for blogs, portals, company and agency websites, magazines, newspapers and many other. It is clean, simple, lightweight, responsive and user-friendly.</p>
+            <p>phpBlog allows you to create blogs, news portals, or magazines easily. It is built with performance and security in mind.</p>
             
-            <p>With its powerful Admin Panel you can manage Posts, Categories, Comments, Gallery, Pages, Widgets, Themes, Website Settings, Messages and many more.</p>
+            <p><strong>New in v2.9:</strong> The system now includes a responsive Mega Menu, an intelligent RSS Feed Importer with AI image detection, a marketing Popup Manager, and a robust Maintenance Mode.</p>
         </section>
         
         <section id="features">
@@ -144,53 +153,24 @@
                 <hr class="notop">
             </div>
             <ul>
-<li><strong>Posts</strong><br />
-Posts can be added, edited and deleted. HTML Editor is integrated.</li>
-<li><strong>Categories</strong><br />
-Posts can be organized into Categories.</li>
-<li><strong>Comments System</strong><br />
-Users can share their opinion in the Comments Section of the Posts.</li>
-<li><strong>Gallery</strong><br />
-Gallery allows you to create a full portfolio of your images and works.</li>
-<li><strong>Albums</strong><br />
-Gallery images can be organized into Albums.</li>
-<li><strong>Users Login and Registration</strong><br />
-Users module provides user-friendly registration form, login form and profile page.</li>
-<li><strong>Custom Pages</strong><br />
-Custom Pages can be added, edited and deleted. HTML Codes are supported.</li>
-<li><strong>Widgets</strong><br />
-Custom Widgets can be added, edited and deleted.</li>
-<li><strong>Search Module</strong><br />
-Searches for posts and displays results as a list.</li>
-<li><strong>Newsletter</strong><br />
-Keep in touch with your site visitors and encourage them to return to your site.</li>
-<li><strong>Themes</strong><br />
-The site can be redesigned in different themes. Many themes are added by default.</li>
-<li><strong>Menu Editor</strong><br />
-Menu can be managed dynamically. Menus can be added, edited and deleted.</li>
-<li><strong>Contact Page</strong><br />
-The Contact Form is providing the best ways to get in touch.</li>
-<li><strong>Powerful Admin Panel</strong><br />
-The whole website can be managed via the Admin Panel.</li>
-<li><strong>Dashboard with Stats</strong><br />
-On the Dashboard you can check the Statistics.</li>
-<li><strong>File Manager</strong><br />
-File Manager allows you to upload, view and delete files.</li>
-<li><strong>RSS Feed</strong><br />
-Web feed that allows users and applications to access updates to your website in a standardized, computer-readable format.</li>
-<li><strong>XML Sitemap</strong><br />
-Sitemap is XML file that lists your website’s pages, making sure search engines can find and crawl them.</li>
-<li><strong>Secure</strong><br />
-The script is integrated with special security functions borrowed from Project SECURITY to protect the whole site and its users.</li>
-<li><strong>Very Optimized</strong><br />
-The script is very lightweight and optimized.</li>
-<li><strong>Responsive Layout</strong><br />
-Looks good on many devices and screen resolutions.</li>
-<li><strong>Easy to setup</strong><br />
-The script is integrated with Installation Wizard that will help you to install the app.</li>
-</ul>
-<em>and many more...</em>
-
+                <li><strong>🎨 Mega Menu (New):</strong> A stunning, responsive navigation menu with 3 columns (Explore, Categories, Recent Posts with thumbnails).</li>
+                <li><strong>📢 RSS Auto-Importer (New):</strong> Automatically fetch content from external sources. Includes duplicate detection (GUID) and image extraction logic.</li>
+                <li><strong>💬 Popup Manager (New):</strong> Create marketing popups with specific targeting (Home vs All pages, Frequency per session, Delay).</li>
+                <li><strong>🛡️ Advanced Security (Upgraded):</strong>
+                    <ul>
+                        <li>Anti-CSRF Protection on all forms.</li>
+                        <li>HTMLPurifier integration for content sanitization.</li>
+                        <li>ReCAPTCHA v2 on Contact & Registration forms.</li>
+                        <li>Secure Database logging for Contact messages.</li>
+                    </ul>
+                </li>
+                <li><strong>🚧 Maintenance Mode (New):</strong> Custom maintenance page for visitors, while Administrators can still access the live site.</li>
+                <li><strong>Posts & Categories:</strong> Full management with Summernote WYSIWYG editor.</li>
+                <li><strong>Comments System:</strong> Nested comments (threading), Emoji support, and badges for active users.</li>
+                <li><strong>Gallery & Albums:</strong> Create portfolios easily.</li>
+                <li><strong>Dashboard:</strong> Interactive stats with clickable widgets and smart filtering (Drafts, Pending comments).</li>
+                <li><strong>Responsive Layout:</strong> Mobile-first design based on Bootstrap 5.</li>
+            </ul>
         </section>
         
         <section id="requirements">
@@ -199,9 +179,11 @@ The script is integrated with Installation Wizard that will help you to install 
                 <hr class="notop">
             </div>
             <ul>
-                <li>PHP</li>
-                <li>MySQLi</li>
-				<li>Apache Mod_Rewrite</li>
+                <li>PHP 7.4 or higher (8.0+ recommended)</li>
+                <li>MySQLi Extension</li>
+				<li>Apache Server with Mod_Rewrite enabled</li>
+                <li>GD Library (for image processing)</li>
+                <li>cURL enabled (for RSS Import)</li>
             </ul>
         </section>
         
@@ -211,70 +193,79 @@ The script is integrated with Installation Wizard that will help you to install 
                 <hr class="notop">
             </div>
             <ol>
-                <li>Upload the files from the &quot;Source&quot; folder of the script on your host</li>
-                <li>Create a MySQL database (Your hosting provider can assist)</li>
-                <li>Visit your website where you uploaded the files (For example: yourwebsite.com/)</li>
-                <li>The Installation Wizard will open automatically, just follow the steps</li>
-				<li>Add ReCaptcha v2 keys on the Settings page of the Admin Panel.</li>
-            </ol><br />
+                <li>Upload all files to your server.</li>
+                <li>Create a new MySQL database.</li>
+                <li>Visit your website URL (e.g., <code>yourwebsite.com/install/</code>).</li>
+                <li>Follow the installation wizard steps:
+                    <ul>
+                        <li><strong>Database Info:</strong> Enter your DB credentials.</li>
+                        <li><strong>Settings:</strong> Set your <strong>Site Email</strong> (for notifications) and <strong>Admin Account</strong> details separately.</li>
+                    </ul>
+                </li>
+                <li><strong>Important:</strong> Once installed, delete the <code>/install/</code> folder from your server for security.</li>
+            </ol>
+        </section>
+
+        <section id="rss_cron">
+            <div class="page-header">
+                <h3>Automated RSS Import (Cron Job)</h3>
+                <hr class="notop">
+            </div>
+            <p>To fetch RSS feeds automatically without clicking the "Import" button manually, you can set up a Cron Job on your server (cPanel/Plesk).</p>
             
-            <p><b>Note:</b> 
-				<i>If you are updating the script replace all files with the updated. 
-				If problems appear delete the config.php file of phpBlog and follow the Installation Steps. 
-				To backup your data export all phpBlog related database tables.</i>
-			
-			<p><b>Update instructions for v1.5 =></b> Run these SQL queries in PHPMyAdmin:<br /></p>
+            <h4>1. Security Key</h4>
+            <p>Open <code>admin/run_rss_import.php</code> and find the following line:</p>
+            <code>define('RSS_CRON_SECRET_KEY', '#7dWrR!W@29LxG22wW^b');</code>
+            <p>You can change this key to a custom secret string for better security.</p>
+
+            <h4>2. Cron Command</h4>
+            <p>Set up a cron job to run once every hour (or as preferred) using the following command:</p>
+            <code>wget -q -O - "https://YOUR-SITE.COM/admin/run_rss_import.php?key=YOUR_SECRET_KEY" >/dev/null 2>&1</code>
+            <p><em>Replace <strong>YOUR-SITE.COM</strong> and <strong>YOUR_SECRET_KEY</strong> with your actual data.</em></p>
+        </section>
+        
+        <section id="updates">
+            <div class="page-header">
+                <h3>Update Instructions</h3>
+                <hr class="notop">
+            </div>
+            
+            <p><b>Update to v2.9.1 (Mega Menu & Modules) =></b> Run these SQL queries in PHPMyAdmin:</p>
             <code>
-            ALTER TABLE `posts` ADD `author_id` INT(11) NOT NULL DEFAULT '1' AFTER `content`;
-            <br />
-            ALTER TABLE `posts` ADD `featured` VARCHAR(3) NOT NULL DEFAULT 'No' AFTER `active`;
-            <br />
-            ALTER TABLE `settings` ADD `date_format` VARCHAR(50) NOT NULL DEFAULT 'd.m.Y' AFTER `gcaptcha_secretkey`, ADD `background_image` VARCHAR(255) NOT NULL AFTER `date_format`, ADD `rtl` VARCHAR(3) NOT NULL DEFAULT 'No' AFTER `youtube`;
-			</code>
-            
-			
-			<p><b>Update instructions for v1.6 =></b> Run these SQL queries in PHPMyAdmin:<br /></p>
-			<code>
-			ALTER TABLE `widgets` ADD `position` VARCHAR(10) NOT NULL DEFAULT 'Sidebar' AFTER `content`;
-			<br />
-			ALTER TABLE `settings` ADD `head_customcode` text CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL AFTER `gcaptcha_secretkey`;
-			</code>
-			
-			<p><b>Update instructions for v1.8 =></b> Run these SQL queries in PHPMyAdmin:<br /></p>
-			<code>
-			ALTER TABLE `gallery` ADD `album_id` INT(11) NOT NULL DEFAULT 1 AFTER `id`;
-			<br />
-			CREATE TABLE `albums` ( `id` INT NOT NULL , `title` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL ) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
-			<br />
-			INSERT INTO `albums` (`id`, `title`) VALUES (1, 'General');
-			<br />
-			ALTER TABLE `albums`
-			ADD PRIMARY KEY (`id`);
-			<br />
-			ALTER TABLE `albums`
-			MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-			ALTER TABLE `settings` ADD `linkedin` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `youtube`;
-			<br />
-			ALTER TABLE `settings` ADD `latestposts_bar` VARCHAR(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Enabled' AFTER `date_format`;
-			<br />
-			</code>
-			
-			<p><b>Update instructions for v2.2 =></b> Run these SQL queries in PHPMyAdmin:<br /></p>
-			<code>
-			ALTER TABLE `comments` CHANGE `comment` `comment` VARCHAR(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
-			<br />
-			ALTER TABLE `posts` ADD `slug` VARCHAR(255) NOT NULL AFTER `title`;
-			<br />
-			ALTER TABLE `categories` ADD `slug` VARCHAR(255) NOT NULL AFTER `category`;
-			<br />
-			ALTER TABLE `pages` ADD `slug` VARCHAR(255) NOT NULL AFTER `title`;
-			</code><br />
-			
-			Execute the upgrade PHP file by visiting: <a>http://<b>yoursite.com</b>/install/upgrade-v2.2.php</a>.
-			&nbsp;&nbsp;&nbsp;[Replace "yoursite.com"]
-			<br />Go to the Admin Panel of phpBlog, open page Menu and update all entries that contain <b>page?name=< number(s) ></b> to <b>page?name=< page_slug ></b>. <i>(Page slugs can be found via PHPMyAdmin, table "pages", column "slug")</i>.
-			<br />Go to the Admin Panel of phpBlog, open page Menu and update all records that contain <b>?id=</b> in column Path with <b>?name=</b> if there are such.
-			
+            -- 1. Settings for Sticky Header & Maintenance Mode<br>
+            ALTER TABLE `settings` ADD `sticky_header` varchar(10) NOT NULL DEFAULT 'Off';<br>
+            ALTER TABLE `settings` ADD `maintenance_mode` varchar(10) NOT NULL DEFAULT 'Off';<br>
+            ALTER TABLE `settings` ADD `maintenance_title` varchar(255) NOT NULL DEFAULT 'Site Under Maintenance';<br>
+            ALTER TABLE `settings` ADD `maintenance_message` LONGTEXT NULL;<br>
+            <br>
+            -- 2. Table for RSS Imports<br>
+            CREATE TABLE `rss_imports` (<br>
+              `id` int(11) NOT NULL AUTO_INCREMENT,<br>
+              `feed_url` varchar(255) NOT NULL,<br>
+              `import_as_user_id` int(11) NOT NULL,<br>
+              `import_as_category_id` int(11) NOT NULL,<br>
+              `last_import_time` datetime DEFAULT NULL,<br>
+              `is_active` int(1) NOT NULL DEFAULT 1,<br>
+              PRIMARY KEY (`id`)<br>
+            );<br>
+            <br>
+            -- 3. Table for Popups<br>
+            CREATE TABLE `popups` (<br>
+              `id` int(11) NOT NULL AUTO_INCREMENT,<br>
+              `title` varchar(255) NOT NULL,<br>
+              `content` LONGTEXT NOT NULL,<br>
+              `active` varchar(3) NOT NULL DEFAULT 'No',<br>
+              `display_pages` varchar(255) NOT NULL DEFAULT 'home',<br>
+              `show_once_per_session` varchar(3) NOT NULL DEFAULT 'Yes',<br>
+              `delay_seconds` int(3) NOT NULL DEFAULT 2,<br>
+              `created_at` datetime NOT NULL DEFAULT current_timestamp(),<br>
+              PRIMARY KEY (`id`)<br>
+            );<br>
+            <br>
+            -- 4. Add GUID support for RSS deduplication<br>
+            ALTER TABLE `posts` ADD `imported_guid` varchar(255) DEFAULT NULL;<br>
+            ALTER TABLE `posts` ADD UNIQUE KEY `imported_guid_unique` (`imported_guid`);
+            </code>
         </section>
 		
 		<section id="recaptcha">
@@ -282,30 +273,27 @@ The script is integrated with Installation Wizard that will help you to install 
                 <h3>ReCaptcha v2 - Configuration</h3>
                 <hr class="notop">
             </div>
-			<p>The Site Key and Secret Key can be generated on this page: 
-			<a href="https://www.google.com/recaptcha/admin/create" target="_blank">https://www.google.com/recaptcha/admin/create</a></p>
-			<p>Choose reCAPTCHA v2 -> “I’m not a robot” Checkbox. Then fill the other details and submit the form.</p>
-			
-			<br />
-			<p>Finally the needed Keys can be found on this page:</p>
-			<img src="assets/img/recaptcha.png" width="70%" />
-			
+			<p>To protect your Contact and Registration forms, get your keys here: 
+			<a href="https://www.google.com/recaptcha/admin/create" target="_blank">Google ReCaptcha Admin</a></p>
+			<p>Select <strong>reCAPTCHA v2</strong> -> <strong>"I’m not a robot" Checkbox</strong>.</p>
+            <p>Copy the <strong>Site Key</strong> and <strong>Secret Key</strong> into your Admin Panel > Settings.</p>
+			<img src="assets/img/recaptcha.png" width="70%" style="border:1px solid #ccc; border-radius:5px; margin-top:10px;" />
         </section>
         
-        <section id="sources_and_credits">
+        <section id="credits">
             <div class="page-header">
-                <h3>Sources and Credits</h3>
+                <h3>Credits</h3>
                 <hr class="notop">
             </div>
             <p>Used resources:</p>
             <ul>
-                <li>Font Awesome Icons -&nbsp;<a href="http://fontawesome.io" target="_blank">FontAwesome.io</a></li>
-                <li>Bootstrap Framework -&nbsp;<a href="https://getbootstrap.com" target="_blank">GetBootstrap.com</a></li>
-                <li>DataTables -&nbsp;<a href="https://datatables.net" target="_blank">DataTables.net</a></li>
-                <li>jQuery - <a href="https://jquery.com" target="_blank">jQuery.com</a></li>
-				<li>SummerNote - <a href="https://summernote.org/" target="_blank">SummerNote.org</a></li>
+                <li><strong>Bootstrap 5</strong> - Frontend Framework</li>
+                <li><strong>FontAwesome 5</strong> - Icons</li>
+                <li><strong>DataTables</strong> - Advanced Tables</li>
+                <li><strong>SummerNote</strong> - WYSIWYG Editor</li>
+                <li><strong>HTMLPurifier</strong> - Security Library</li>
+                <li><strong>SimplePie / RSS</strong> - Feeds Logic</li>
             </ul>
-			
         </section>
 
     </div>
