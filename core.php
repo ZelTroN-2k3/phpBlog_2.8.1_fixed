@@ -3,7 +3,7 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 // phpBlog version
-$phpblog_version = "2.8.1";
+$phpblog_version = "2.9.1";
 
 // --- MODIFICATION : Correction du chemin ---
 $configfile = __DIR__ . '/config.php'; // Utilise le chemin absolu du dossier de core.php
@@ -243,7 +243,9 @@ function emoticons($text)
         ':poop:' => '💩',
         ':|]' => '🤖'
     );
-    return $text;
+    // --- CORRECTION ---
+    // On remplace les codes (clés) par les emojis (valeurs)
+    return str_replace(array_keys($icons), array_values($icons), $text);    
 }
 
 function generateSeoURL($string, $random_numbers = 1, $wordLimit = 8) { 
@@ -1207,6 +1209,34 @@ if($settings['background_image'] != "") {
     }';
 }
 ?>
+/* --- CSS MEGA MENU RESPONSIVE --- */
+
+/* 1. Par défaut (Mobile) : Le menu prend 100% de la largeur et s'empile */
+.mega-menu-custom {
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    margin-top: 0;
+    padding: 0;
+}
+
+/* 2. Sur PC (Écrans > 992px) : On applique le style "Mega Menu Centré" */
+@media (min-width: 992px) {
+    .nav-item.dropdown {
+        position: relative; /* Le parent redevient la référence */
+    }
+    
+    .mega-menu-custom {
+        position: absolute;
+        min-width: 900px; /* Largeur fixe pour PC */
+        left: 50%;
+        transform: translateX(-30%); /* Centrage parfait */
+        border-top: 3px solid #007bff;
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); /* Ombre uniquement sur PC */
+        border-radius: 0.25rem;
+        padding: 1rem 0;
+    }
+}
         </style>
         
 <?php
@@ -1429,28 +1459,91 @@ if ($settings['layout'] == 'Wide') {
     while ($row = mysqli_fetch_assoc($runq)) {
 
         if ($row['path'] == 'blog') {
-			
-            echo '	<li class="nav-item link-body-emphasis dropdown">
-						<a href="blog" class="nav-link link-dark dropdown-toggle px-2';
-            if ($current_page == 'blog.php' || $current_page == 'category.php' || $current_page == 'tag.php') {
-                echo ' active';
-            }
-            // Utiliser htmlspecialchars pour les icônes et le texte
-            echo '" data-bs-toggle="dropdown">
-							<i class="fa ' . htmlspecialchars($row['fa_icon']) . '"></i> ' . htmlspecialchars($row['page']) . ' 
-							<span class="caret"></span>
-						</a>
-						<ul class="dropdown-menu">
-							<li><a class="dropdown-item" href="blog">View all posts</a></li>';
+            // --- MEGA MENU RESPONSIVE V3 ---
+            echo '<li class="nav-item dropdown">
+                    <a href="blog" class="nav-link dropdown-toggle px-2" data-bs-toggle="dropdown">
+                        <i class="fa ' . htmlspecialchars($row['fa_icon']) . '"></i> ' . htmlspecialchars($row['page']) . ' 
+                    </a>
+                    
+                    <div class="dropdown-menu mega-menu-custom bg-white">
+                        <div class="px-4 py-3">
+                            <div class="row g-4">
+                                
+                                <div class="col-12 col-lg-2 border-end-lg"> <h6 class="text-uppercase fw-bold text-primary mb-3 pt-2" style="font-size: 0.85rem;">
+                                        <i class="fas fa-compass me-1"></i> Explore
+                                    </h6>
+                                    <div class="list-group list-group-flush">
+                                        <a href="blog" class="list-group-item list-group-item-action border-0 px-0 py-1">
+                                            <i class="fas fa-layer-group me-2 text-dark"></i> All Posts
+                                        </a>
+                                        <a href="rss.php" class="list-group-item list-group-item-action border-0 px-0 py-1">
+                                            <i class="fas fa-rss me-2 text-warning"></i> RSS Feed
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 col-lg-4 border-end-lg">
+                                    <h6 class="text-uppercase fw-bold text-secondary mb-3 pt-2" style="font-size: 0.85rem;">
+                                        <i class="fas fa-list me-1"></i> Categories
+                                    </h6>
+                                    <div class="row">
+            ';
             
-            // Requête simple sans variable externe
             $run2 = mysqli_query($connect, "SELECT * FROM `categories` ORDER BY category ASC");
-            while ($row2 = mysqli_fetch_array($run2)) {
-                // Utiliser htmlspecialchars
-                echo '		<li><a class="dropdown-item" href="category?name=' . htmlspecialchars($row2['slug']) . '"><i class="fas fa-chevron-right"></i> ' . htmlspecialchars($row2['category']) . '</a></li>';
+            if (mysqli_num_rows($run2) > 0) {
+                while ($row2 = mysqli_fetch_assoc($run2)) {
+                    echo '<div class="col-6 mb-1">
+                            <a class="dropdown-item rounded px-2 py-1 small text-truncate" href="category?name=' . htmlspecialchars($row2['slug']) . '">
+                                <i class="fas fa-angle-right text-muted me-1"></i> ' . htmlspecialchars($row2['category']) . '
+                            </a>
+                          </div>';
+                }
             }
-            echo '		</ul>
-					</li>';
+            
+            echo '          </div>
+                                </div>
+
+                                <div class="col-12 col-lg-6">
+                                    <h6 class="text-uppercase fw-bold text-success mb-3 pt-2" style="font-size: 0.85rem;">
+                                        <i class="fas fa-clock me-1"></i> Newest
+                                    </h6>
+                                    <div class="row g-3">
+            ';
+
+            // Requête pour les 4 derniers articles publiés
+            $recent_q = mysqli_query($connect, "SELECT title, slug, image, created_at FROM posts WHERE active='Yes' AND publish_at <= NOW() ORDER BY id DESC LIMIT 4");
+            
+            if(mysqli_num_rows($recent_q) > 0){
+                while($post = mysqli_fetch_assoc($recent_q)){
+                    $img_src = $post['image'] != '' ? htmlspecialchars($post['image']) : 'assets/img/no-image.png';
+                    
+                    if($post['image'] == '') {
+                         $img_display = '<div class="bg-light d-flex align-items-center justify-content-center text-muted small" style="height: 60px; width: 80px; border-radius: 4px;"><i class="fas fa-image"></i></div>';
+                    } else {
+                         $img_display = '<img src="' . $img_src . '" class="img-fluid rounded" style="height: 60px; width: 80px; object-fit: cover;" alt="Post">';
+                    }
+
+                    echo '
+                    <div class="col-12 col-md-6"> <a href="post?name=' . htmlspecialchars($post['slug']) . '" class="text-decoration-none link-dark d-flex align-items-center p-1 rounded hover-bg-light">
+                            <div class="flex-shrink-0 me-2">
+                                ' . $img_display . '
+                            </div>
+                            <div class="flex-grow-1" style="min-width: 0;">
+                                <h6 class="mb-0 small fw-bold text-truncate" style="line-height: 1.4;">' . htmlspecialchars($post['title']) . '</h6>
+                                <small class="text-muted" style="font-size: 0.75rem;">' . date('M d, Y', strtotime($post['created_at'])) . '</small>
+                            </div>
+                        </a>
+                    </div>
+                    ';
+                }
+            } else {
+                echo '<div class="col-12 text-muted small">No recent posts.</div>';
+            }
+
+            echo '                  </div> </div> </div> </div>
+                    </div>
+                  </li>';
+            // --- FIN DU MEGA MENU ---
 		
         } else {
 
