@@ -92,7 +92,7 @@ if ($user['role'] == "Admin") {
 
 
 // Variable de version (comme dans core.php)
-$phpblog_version = "2.8.1"; 
+$phpblog_version = "2.9.1"; 
 
 // --- REQUÊTES POUR LES STATISTIQUES EXPLOITABLES ---
 
@@ -276,51 +276,64 @@ if ($user['role'] == "Admin") {
 
         <div class="row">
             <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box">
-                    <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Published Articles</span>
-                        <span class="info-box-number"><?php echo $count_posts_published; ?></span>
+                <a href="posts.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Published Articles</span>
+                            <span class="info-box-number"><?php echo $count_posts_published; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
+
             <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-pencil-alt"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Drafts</span>
-                        <span class="info-box-number"><?php echo $count_posts_drafts; ?></span>
+                <a href="posts.php?status=draft" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-pencil-alt"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Drafts</span>
+                            <span class="info-box-number"><?php echo $count_posts_drafts; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
             
             <?php if ($user['role'] == "Admin"): ?>
             <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-info elevation-1"><i class="fas fa-comments"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Pending Comments</span>
-                        <span class="info-box-number"><?php echo $count_comments_pending; ?></span>
+                <a href="comments.php?status=pending" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-comments"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Pending Comments</span>
+                            <span class="info-box-number"><?php echo $count_comments_pending; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
+
             <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-info elevation-1"><i class="fas fa-clock"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Pending Articles</span>
-                        <span class="info-box-number"><?php echo $count_posts_pending; ?></span>
+                <a href="posts.php?status=pending" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-clock"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Pending Articles</span>
+                            <span class="info-box-number"><?php echo $count_posts_pending; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
+
             <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-envelope"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Unread Messages</span>
-                        <span class="info-box-number"><?php echo $count_messages_unread; ?></span>
+                <a href="messages.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-envelope"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Unread Messages</span>
+                            <span class="info-box-number"><?php echo $count_messages_unread; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
             <?php endif; ?>
         </div>
@@ -390,7 +403,11 @@ if ($user['role'] == "Admin") {
                             <div class="col-6">
                                 <ul class="list-group list-group-flush">
                                     <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="posts.php"><i class="fas fa-file-alt"></i> Items</a>
+                                        <?php 
+                                        // Logique UX : Si des brouillons existent, on redirige vers le filtre "draft", sinon vers la liste principale
+                                        $posts_link_smart = ($count_posts_drafts > 0) ? "posts.php?status=draft" : "posts.php"; 
+                                        ?>
+                                        <a href="<?php echo $posts_link_smart; ?>"><i class="fas fa-file-alt"></i> Items</a>
                                         <span class="badge bg-success rounded-pill"><?php echo $count_posts_published; ?></span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
@@ -406,7 +423,11 @@ if ($user['role'] == "Admin") {
                             <div class="col-6">
                                 <ul class="list-group list-group-flush">
                                     <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="comments.php"><i class="fas fa-comments"></i> Comments</a>
+                                        <?php 
+                                        // Logique UX : Si des commentaires sont en attente, on redirige vers le filtre "pending"
+                                        $comment_link = ($count_comments_pending > 0) ? "comments.php?status=pending" : "comments.php"; 
+                                        ?>
+                                        <a href="<?php echo $comment_link; ?>"><i class="fas fa-comments"></i> Comments</a>
                                         <span class="badge bg-danger rounded-pill"><?php echo $count_comments_total; ?></span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
