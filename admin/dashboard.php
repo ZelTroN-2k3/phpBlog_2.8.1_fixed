@@ -31,9 +31,11 @@ if ($user['role'] == "Admin") {
         echo '<meta http-equiv="refresh" content="0; url=dashboard.php">';
         exit;
     }
+    // --- FIN LOGIQUE DE MODÉRATION RAPIDE (COMMENTAIRES) ---
+}
 
-    // --- NOUVELLE LOGIQUE : MODÉRATION RAPIDE (ARTICLES) ---
-    
+// --- LOGIQUE : MODÉRATION RAPIDE (ARTICLES) ---
+if ($user['role'] == "Admin") {   
     // Gérer l'approbation d'un article
     if (isset($_GET['approve-post'])) {
         validate_csrf_token_get();
@@ -86,15 +88,53 @@ if ($user['role'] == "Admin") {
         echo '<meta http-equiv="refresh" content="0; url=dashboard.php">';
         exit;
     }
-    // --- FIN DE LA NOUVELLE LOGIQUE ---
+    // --- FIN LOGIQUE : MODÉRATION RAPIDE (ARTICLES) ---
 }
+
+// --- LOGIQUE : MODÉRATION RAPIDE (TÉMOIGNAGES) ---
+if ($user['role'] == "Admin") {
+    
+    // Gérer l'approbation
+    if (isset($_GET['approve-testimonial'])) {
+        validate_csrf_token_get();
+        $testi_id = (int)$_GET['approve-testimonial'];
+        
+        $stmt_approve_t = mysqli_prepare($connect, "UPDATE `testimonials` SET active='Yes' WHERE id=?");
+        mysqli_stmt_bind_param($stmt_approve_t, "i", $testi_id);
+        mysqli_stmt_execute($stmt_approve_t);
+        mysqli_stmt_close($stmt_approve_t);
+        
+        echo '<meta http-equiv="refresh" content="0; url=dashboard.php">'; 
+        exit;
+    }
+    
+    // Gérer la suppression
+    if (isset($_GET['delete-testimonial'])) {
+        validate_csrf_token_get();
+        $testi_id = (int)$_GET['delete-testimonial'];
+        
+        $stmt_delete_t = mysqli_prepare($connect, "DELETE FROM `testimonials` WHERE id=?");
+        mysqli_stmt_bind_param($stmt_delete_t, "i", $testi_id);
+        mysqli_stmt_execute($stmt_delete_t);
+        mysqli_stmt_close($stmt_delete_t);
+        
+        echo '<meta http-equiv="refresh" content="0; url=dashboard.php">';
+        exit;
+    }
+    // --- FIN LOGIQUE DE MODÉRATION RAPIDE (TÉMOIGNAGES) ---
+}
+
+// -----------------------------------
 // --- FIN DE LA LOGIQUE ---
+// -----------------------------------
 
 
 // Variable de version (comme dans core.php)
-$phpblog_version = "2.8.1"; 
+$phpblog_version = "2.9.1"; 
 
+// ------------------------------------------------------------
 // --- REQUÊTES POUR LES STATISTIQUES EXPLOITABLES ---
+// ------------------------------------------------------------
 
 // 1. Cartes de statistiques
 $query_posts_published = mysqli_query($connect, "SELECT COUNT(id) AS count FROM posts WHERE active='Yes'");
@@ -217,7 +257,7 @@ while ($row_author = mysqli_fetch_assoc($query_top_authors)) {
 $chart_authors_labels_json = json_encode($chart_authors_labels);
 $chart_authors_data_json = json_encode($chart_authors_data);
 
-// --- NOUVEL AJOUT : 9. Articles en attente ---
+// 9. Articles en attente ---
 if ($user['role'] == "Admin") {
     $query_pending_posts = mysqli_query($connect, "
         SELECT p.*, u.username AS author_name, u.avatar AS author_avatar
@@ -232,11 +272,62 @@ if ($user['role'] == "Admin") {
     $query_pending_posts = false;
     $posts_pending_count = 0;
 }
+
+// 10. compteur des modules ---
+/*$count_testi_pending = 0;
+$count_testi_total = 0;
+$count_polls_total = 0;
+$count_slides_total = 0;
+$count_faq_total = 0;
+
+if ($user['role'] == "Admin") {
+    // Témoignages
+    $q_testi = mysqli_query($connect, "SELECT active, COUNT(id) as count FROM testimonials GROUP BY active");
+    while ($r_testi = mysqli_fetch_assoc($q_testi)) {
+        if ($r_testi['active'] == 'Pending') $count_testi_pending = $r_testi['count'];
+        $count_testi_total += $r_testi['count'];
+    }
+    // Sondages
+    $q_polls = mysqli_query($connect, "SELECT COUNT(id) as count FROM polls");
+    $count_polls_total = mysqli_fetch_assoc($q_polls)['count'];
+    // Slides
+    $q_slides = mysqli_query($connect, "SELECT COUNT(id) as count FROM slides");
+    $count_slides_total = mysqli_fetch_assoc($q_slides)['count'];
+    // FAQ
+    $q_faq = mysqli_query($connect, "SELECT COUNT(id) as count FROM faqs");
+    $count_faq_total = mysqli_fetch_assoc($q_faq)['count'];
+}*/
+
+// 10. compteur des modules ---
+$count_testi_pending = 0;
+$count_testi_total = 0;
+$count_polls_total = 0;
+$count_slides_total = 0;
+$count_faq_total = 0;
+
+// Témoignages
+$q_testi = mysqli_query($connect, "SELECT active, COUNT(id) as count FROM testimonials GROUP BY active");
+while ($r_testi = mysqli_fetch_assoc($q_testi)) {
+    if ($r_testi['active'] == 'Pending') $count_testi_pending = $r_testi['count'];
+    $count_testi_total += $r_testi['count'];
+}
+// Sondages
+$q_polls = mysqli_query($connect, "SELECT COUNT(id) as count FROM polls");
+$count_polls_total = mysqli_fetch_assoc($q_polls)['count'];
+// Slides
+$q_slides = mysqli_query($connect, "SELECT COUNT(id) as count FROM slides");
+$count_slides_total = mysqli_fetch_assoc($q_slides)['count'];
+// FAQ
+$q_faq = mysqli_query($connect, "SELECT COUNT(id) as count FROM faqs");
+$count_faq_total = mysqli_fetch_assoc($q_faq)['count'];
+
 // --- FIN AJOUT ---
 
+// ------------------------------------------------------------
 // --- FIN DES REQUÊTES ---
-
+// ------------------------------------------------------------
 ?>
+
 
 <div class="content-header">
     <div class="container-fluid">
@@ -248,7 +339,10 @@ if ($user['role'] == "Admin") {
                     <li class="breadcrumb-item"><a href="#">Home</a></li>
                     <li class="breadcrumb-item active">Dashboard</li>
                 </ol>
-            </div></div></div></div>
+            </div>
+        </div>
+    </div>
+</div>
 <section class="content">
     <div class="container-fluid">
         
@@ -275,53 +369,118 @@ if ($user['role'] == "Admin") {
         </div>
 
         <div class="row">
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box">
-                    <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Published Articles</span>
-                        <span class="info-box-number"><?php echo $count_posts_published; ?></span>
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="posts.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Published Articles</span>
+                            <span class="info-box-number"><?php echo $count_posts_published; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-pencil-alt"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Drafts</span>
-                        <span class="info-box-number"><?php echo $count_posts_drafts; ?></span>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="posts.php?status=draft" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-pencil-alt"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Drafts</span>
+                            <span class="info-box-number"><?php echo $count_posts_drafts; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
             
             <?php if ($user['role'] == "Admin"): ?>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-info elevation-1"><i class="fas fa-comments"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Pending Comments</span>
-                        <span class="info-box-number"><?php echo $count_comments_pending; ?></span>
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="comments.php?status=pending" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-comments"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Pending Comments</span>
+                            <span class="info-box-number"><?php echo $count_comments_pending; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-info elevation-1"><i class="fas fa-clock"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Pending Articles</span>
-                        <span class="info-box-number"><?php echo $count_posts_pending; ?></span>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="posts.php?status=pending" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-clock"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Pending Articles</span>
+                            <span class="info-box-number"><?php echo $count_posts_pending; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-envelope"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Unread Messages</span>
-                        <span class="info-box-number"><?php echo $count_messages_unread; ?></span>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="messages.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-envelope"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Unread Messages</span>
+                            <span class="info-box-number"><?php echo $count_messages_unread; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="testimonials.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-star"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Testimonials</span>
+                            <span class="info-box-number"><?php echo $count_testi_total; ?> 
+                                <?php if($count_testi_pending > 0) echo "<small class='badge bg-danger'>{$count_testi_pending} new</small>"; ?>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="polls.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-purple elevation-1"><i class="fas fa-poll"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Total Polls</span>
+                            <span class="info-box-number"><?php echo $count_polls_total; ?></span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="slides.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-primary elevation-1"><i class="fas fa-images"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Total Slides</span>
+                            <span class="info-box-number"><?php echo $count_slides_total; ?></span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="faq.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-question-circle"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">FAQ</span>
+                            <span class="info-box-number"><?php echo $count_faq_total; ?></span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+        </div>
             <?php endif; ?>
         </div>
         
@@ -380,7 +539,35 @@ if ($user['role'] == "Admin") {
                         <?php endif; ?>
                     </div>
                 </div>
-                
+
+                <?php
+                if ($user['role'] == "Admin") {
+                    $backup_dir = '../backup-database/';
+                    $backup_files = glob($backup_dir . "*.sql");
+                    $backup_count = count($backup_files);
+                    $last_backup_date = 'Never';
+
+                    if ($backup_count > 0) {
+                        // Trier pour trouver le plus récent
+                        usort($backup_files, function($a, $b) { return filemtime($b) - filemtime($a); });
+                        $last_backup_date = date("d M Y, H:i", filemtime($backup_files[0]));
+                    }
+                ?>
+                <div class="card card-secondary">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-shield-alt"></i> System Health</h3>
+                    </div>
+                    <div class="card-body">
+                        <strong>Database Backups</strong>
+                        <p class="text-muted">
+                            Total files: <span class="badge bg-primary"><?php echo $backup_count; ?></span><br>
+                            Last backup: <span class="text-<?php echo ($last_backup_date == 'Never' ? 'danger' : 'success'); ?>"><?php echo $last_backup_date; ?></span>
+                        </p>
+                        <a href="backup.php" class="btn btn-sm btn-primary"><i class="fas fa-download"></i> Manage Backups</a>
+                    </div>
+                </div>
+                <?php } ?>
+
                 <div class="card card-secondary">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-database"></i> Content at a Glance</h3>
@@ -390,7 +577,11 @@ if ($user['role'] == "Admin") {
                             <div class="col-6">
                                 <ul class="list-group list-group-flush">
                                     <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="posts.php"><i class="fas fa-file-alt"></i> Items</a>
+                                        <?php 
+                                        // Logique UX : Si des brouillons existent, on redirige vers le filtre "draft", sinon vers la liste principale
+                                        $posts_link_smart = ($count_posts_drafts > 0) ? "posts.php?status=draft" : "posts.php"; 
+                                        ?>
+                                        <a href="<?php echo $posts_link_smart; ?>"><i class="fas fa-file-alt"></i> Items</a>
                                         <span class="badge bg-success rounded-pill"><?php echo $count_posts_published; ?></span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
@@ -401,12 +592,26 @@ if ($user['role'] == "Admin") {
                                         <a href="categories.php"><i class="fas fa-list-ol"></i> Categories</a>
                                         <span class="badge bg-warning rounded-pill"><?php echo $count_categories; ?></span>
                                     </li>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                                        <a href="backup.php"><i class="fas fa-database"></i> Database Backup</a>
+                                        <span class="badge bg-primary"><?php echo $backup_count; ?></span>
+                                    </li>                                    
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                                        <a href="messages.php"><i class="fas fa-envelope"></i> Messages</a>
+                                        <span class="badge bg-danger rounded-pill"><?php echo $count_messages_total; ?></span>
+                                    </li> 
+                                                                        
                                 </ul>
                             </div>
                             <div class="col-6">
                                 <ul class="list-group list-group-flush">
                                     <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="comments.php"><i class="fas fa-comments"></i> Comments</a>
+                                        <?php 
+                                        // Logique UX : Si des commentaires sont en attente, on redirige vers le filtre "pending"
+                                        $comment_link = ($count_comments_pending > 0) ? "comments.php?status=pending" : "comments.php"; 
+                                        ?>
+                                        <a href="<?php echo $comment_link; ?>"><i class="fas fa-comments"></i> Comments</a>
                                         <span class="badge bg-danger rounded-pill"><?php echo $count_comments_total; ?></span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
@@ -417,6 +622,23 @@ if ($user['role'] == "Admin") {
                                         <a href="users.php"><i class="fas fa-users"></i> Users</a>
                                         <span class="badge bg-dark rounded-pill"><?php echo $count_total_users; ?></span>
                                     </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-top px-0 pt-2">
+                                        <?php $testi_link = ($count_testi_pending > 0) ? "testimonials.php" : "testimonials.php"; ?>
+                                        <a href="<?php echo $testi_link; ?>"><i class="fas fa-star"></i> Testimonials</a>
+                                        <span class="badge bg-warning rounded-pill"><?php echo $count_testi_total; ?></span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                                        <a href="polls.php"><i class="fas fa-poll"></i> Polls</a>
+                                        <span class="badge bg-purple rounded-pill"><?php echo $count_polls_total; ?></span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                                        <a href="slides.php"><i class="fas fa-images"></i> Slider</a>
+                                        <span class="badge bg-primary rounded-pill"><?php echo $count_slides_total; ?></span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                                        <a href="faq.php"><i class="fas fa-question-circle"></i> FAQ</a>
+                                        <span class="badge bg-info rounded-pill"><?php echo $count_faq_total; ?></span>
+                                   
                                 </ul>
                             </div>
                         </div>
@@ -438,6 +660,45 @@ if ($user['role'] == "Admin") {
         <div class="row">
             <div class="col-md-6">
                 <?php if ($user['role'] == "Admin"): ?>
+
+                <div class="card card-warning">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-star"></i> Latest Pending Testimonials</h3>
+                    </div>
+                    <div class="card-body p-0" style="max-height: 400px; overflow-y: auto;">
+                        <ul class="products-list product-list-in-card pl-2 pr-2">
+                            <?php
+                            $q_t = mysqli_query($connect, "SELECT * FROM testimonials WHERE active='Pending' ORDER BY id DESC LIMIT 10");
+                            if(mysqli_num_rows($q_t) == 0):
+                                echo '<li class="item text-center text-muted p-3">No pending testimonials.</li>';
+                            else:
+                                while($row_t = mysqli_fetch_assoc($q_t)):
+                                    $avatar = !empty($row_t['avatar']) ? '../'.$row_t['avatar'] : '../assets/img/avatar.png';
+                            ?>
+                            <li class="item">
+                                <div class="product-img">
+                                    <img src="<?php echo $avatar; ?>" alt="Avatar" class="img-circle" style="width: 50px; height: 50px; object-fit: cover;">
+                                </div>
+                                <div class="product-info ml-3">
+                                    <span class="product-title">
+                                        <?php echo htmlspecialchars($row_t['name']); ?>
+                                        <small class="badge badge-secondary float-right"><?php echo date('d M Y', strtotime($row_t['created_at'])); ?></small>
+                                    </span>
+                                    <span class="product-description">
+                                        "<?php echo emoticons(htmlspecialchars(substr($row_t['content'], 0, 100))); ?>..."
+                                    </span>
+                                    <div class="mt-2">
+                                        <a href="?approve-testimonial=<?php echo $row_t['id']; ?>&token=<?php echo $_SESSION['csrf_token']; ?>" class="btn btn-xs btn-success"><i class="fas fa-check"></i> Approve</a>
+                                        <a href="?delete-testimonial=<?php echo $row_t['id']; ?>&token=<?php echo $_SESSION['csrf_token']; ?>" class="btn btn-xs btn-danger" onclick="return confirm('Delete?');"><i class="fas fa-trash"></i> Delete</a>
+                                        <a href="testimonials.php" class="btn btn-xs btn-default float-right">View All</a>
+                                    </div>
+                                </div>
+                            </li>
+                            <?php endwhile; endif; ?>
+                        </ul>
+                    </div>
+                </div>
+
                 <div class="card card-outline card-danger" id="moderation">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-gavel"></i> Quick Moderation (Comments)</h3>
@@ -576,6 +837,7 @@ if ($user['role'] == "Admin") {
                         </div>
                     <?php endif; ?>
                 </div>
+
                 <?php else: // Si c'est un Éditeur, afficher les commentaires récents ?>
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">Recent Comments</h3></div>
@@ -621,6 +883,7 @@ if ($user['role'] == "Admin") {
                         ?>
                     </div>
                 </div>
+
                 <?php endif; // Fin du if ($user['role'] == "Admin") ?>
             </div>
             
@@ -727,8 +990,8 @@ if ($user['role'] == "Admin") {
                 <?php endif; ?>
             </div>
         </div>
+</section>
 
-    </div></section>
 <script>
 document.addEventListener('DOMContentLoaded', (event) => {
     
@@ -867,6 +1130,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
 });
 </script>
 
-<?php
+ <?php
 include "footer.php";
 ?>

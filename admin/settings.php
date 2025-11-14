@@ -95,7 +95,7 @@ if (isset($_POST['save'])) {
                         head_customcode_enabled = ?,
                         facebook = ?, instagram = ?, twitter = ?, youtube = ?, 
                         linkedin = ?, rtl = ?, date_format = ?, 
-                        layout = ?, latestposts_bar = ?, sidebar_position = ?, 
+                        layout = ?, latestposts_bar = ?, homepage_slider = ?, sidebar_position = ?, 
                         posts_per_row = ?, theme = ?, posts_per_page = ?, 
                         background_image = ?, 
                         meta_title = ?, favicon_url = ?, apple_touch_icon_url = ?,
@@ -109,8 +109,8 @@ if (isset($_POST['save'])) {
                 throw new Exception("MySQL prepare error: " . mysqli_error($connect));
             }
 
-            // 2. Définir les types (maintenant 29 colonnes = 29 's')
-            $types = "sssssssssssssssssssssssssssss"; // 29 's'
+            // 2. Définir les types (maintenant 30 colonnes = 30 's')
+            $types = "ssssssssssssssssssssssssssssss"; // 30 's'
             
             // 3. Encoder le 'head_customcode' en base64
             $head_customcode_encoded = base64_encode($_POST['head_customcode']);
@@ -134,6 +134,7 @@ if (isset($_POST['save'])) {
                 $_POST['date_format'],
                 $_POST['layout'],
                 $_POST['latestposts_bar'],
+                $_POST['homepage_slider'],
                 $_POST['sidebar_position'],
                 $_POST['posts_per_row'],
                 $_POST['theme'],
@@ -324,6 +325,15 @@ if (isset($_POST['save'])) {
                                         </select>
                                     </div>
                                 </div>
+                            <hr>
+                                <div class="form-group">
+                                    <label>Homepage Slider Type</label>
+                                    <select name="homepage_slider" class="form-control">
+                                        <option value="Featured" <?php if($settings['homepage_slider'] == 'Featured') { echo 'selected'; } ?>>Featured Posts Slider (Default)</option>
+                                        <option value="Custom" <?php if($settings['homepage_slider'] == 'Custom') { echo 'selected'; } ?>>Custom Slider</option>
+                                    </select>
+                                    <small class="text-muted">Choose between the default "Featured Posts" slider or the new "Custom Slider" module.</small>
+                                </div>                                
                                 <div class="col-md-3">
                                     <div class="form-group">
                                         <label><i class="fas fa-align-right text-primary"></i> Right-to-Left (RTL)</label>

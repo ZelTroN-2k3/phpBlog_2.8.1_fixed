@@ -173,6 +173,13 @@ if ($user['role'] == "Admin") {
     $menu_draft_count = mysqli_fetch_assoc($menu_draft_query)['count'];
 }
 
+// --- NOUVEAUX COMPTAGES POUR LES BADGES (TESTIMONIALS) ---
+$count_testi_pending = 0;
+if ($user['role'] == "Admin") {
+    $q_tp = mysqli_query($connect, "SELECT COUNT(id) as count FROM testimonials WHERE active='Pending'");
+    $count_testi_pending = mysqli_fetch_assoc($q_tp)['count'];
+}
+
 // --- NOUVEAUX COMPTAGES POUR LES WIDGETS ---
 $widget_active_count = 0;
 $widget_inactive_count = 0;
@@ -399,6 +406,12 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                                     <p>Newsletter <span class="badge badge-info right"><?php echo $total_subscribers_count; ?></span></p>
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a href="backup.php" class="nav-link <?php if ($current_page == 'backup.php') echo 'active'; ?>">
+                                    <i class="nav-icon fas fa-database"></i>
+                                    <p>Database Backup</p>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <?php endif; ?>
@@ -492,6 +505,31 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                         </ul>
                     </li>
 
+                <!-- li class="nav-header">MEGAMENU</li -->
+                    
+                    <li class="nav-item <?php echo (in_array($current_page, ['mega_menus.php', 'add_mega_menu.php', 'edit_mega_menu.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['mega_menus.php', 'add_mega_menu.php', 'edit_mega_menu.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-columns"></i> <p>
+                                Mega Menus
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="mega_menus.php" class="nav-link <?php echo ($current_page == 'mega_menus.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list-ul"></i>
+                                    <p>List All Menus</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_mega_menu.php" class="nav-link <?php echo ($current_page == 'add_mega_menu.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus-square"></i>
+                                    <p>Create New Menu</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                     <?php if ($user['role'] == "Admin"): ?>
                     <?php
                     // --- GROUPE PAGES ---
@@ -566,7 +604,114 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                             <p>Files</p>
                         </a>
                     </li>
+
+                <!-- li class="nav-header">POLLS</li -->
                     
+                    <li class="nav-item <?php echo (in_array($current_page, ['polls.php', 'add_poll.php', 'edit_poll.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['polls.php', 'add_poll.php', 'edit_poll.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-poll"></i> <p>
+                                Polls
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="polls.php" class="nav-link <?php echo ($current_page == 'polls.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list-ol"></i>
+                                    <p>List Polls</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_poll.php" class="nav-link <?php echo ($current_page == 'add_poll.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus-circle"></i>
+                                    <p>Create Poll</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                <!-- li class="nav-header">TESTIMONIALS</li -->
+                    
+                    <li class="nav-item <?php echo (in_array($current_page, ['testimonials.php', 'add_testimonial.php', 'edit_testimonial.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['testimonials.php', 'add_testimonial.php', 'edit_testimonial.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-quote-left"></i>
+                            <p>
+                                Testimonials
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="testimonials.php" class="nav-link <?php echo ($current_page == 'testimonials.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list"></i>
+                                    <p>List All 
+                                        <?php if($count_testi_pending > 0): ?>
+                                            <span class="badge badge-warning right"><?php echo $count_testi_pending; ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_testimonial.php" class="nav-link <?php echo ($current_page == 'add_testimonial.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus"></i>
+                                    <p>Add New</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                <!-- li class="nav-header">FAQ</li -->
+                    
+                    <li class="nav-item <?php echo (in_array($current_page, ['faq.php', 'add_faq.php', 'edit_faq.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['faq.php', 'add_faq.php', 'edit_faq.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-question-circle"></i>
+                            <p>
+                                FAQ Manager
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="faq.php" class="nav-link <?php echo ($current_page == 'faq.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list-ul"></i>
+                                    <p>List Questions</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_faq.php" class="nav-link <?php echo ($current_page == 'add_faq.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus"></i>
+                                    <p>Add Question</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                <!-- li class="nav-header">SLIDER</li -->
+                    
+                    <li class="nav-item <?php echo (in_array($current_page, ['slides.php', 'add_slide.php', 'edit_slide.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['slides.php', 'add_slide.php', 'edit_slide.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-images"></i>
+                            <p>
+                                Manage Slider
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="slides.php" class="nav-link <?php echo ($current_page == 'slides.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list"></i>
+                                    <p>List Slides</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_slide.php" class="nav-link <?php echo ($current_page == 'add_slide.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus"></i>
+                                    <p>Add New Slide</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                 </ul>
             </nav>
             </div>

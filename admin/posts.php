@@ -336,7 +336,40 @@ echo html_entity_decode($row['content']);
 				</thead>
 				<tbody>
 <?php
-// Requête optimisée avec JOIN pour récupérer toutes les informations nécessaires
+
+// --- GESTION DU FILTRE (Status) ---
+$where_clause = "";
+$status_filter = "";
+
+// Vérifier si un statut est demandé dans l'URL
+if (isset($_GET['status'])) {
+    $status_code = $_GET['status'];
+    
+    if ($status_code == 'draft') {
+        $where_clause = "WHERE p.active = 'Draft'";
+        $status_filter = "Drafts";
+    } elseif ($status_code == 'pending') {
+        $where_clause = "WHERE p.active = 'Pending'";
+        $status_filter = "Pending";
+    } elseif ($status_code == 'published') {
+        $where_clause = "WHERE p.active = 'Yes'";
+        $status_filter = "Published";
+    } elseif ($status_code == 'trash') {
+        $where_clause = "WHERE p.active = 'No'"; // Si vous utilisez 'No' pour corbeille/inactif
+        $status_filter = "Inactive";
+    }
+}
+
+// Afficher un petit message pour dire qu'on filtre
+if ($status_filter) {
+    echo '<div class="alert alert-info alert-dismissible fade show">
+            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+            <h5><i class="icon fas fa-filter"></i> Filter Active</h5>
+            Showing only: <strong>' . $status_filter . '</strong> posts. <a href="posts.php" class="text-reset text-decoration-underline">Show all</a>.
+          </div>';
+}
+
+// Requête optimisée avec le filtre WHERE dynamique
 $query = "
     SELECT 
         p.*, 
@@ -346,6 +379,7 @@ $query = "
     FROM posts p
     LEFT JOIN categories c ON p.category_id = c.id
     LEFT JOIN users u ON p.author_id = u.id
+    $where_clause
     ORDER BY p.id DESC
 ";
 $sql = mysqli_query($connect, $query);
