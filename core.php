@@ -3,7 +3,7 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 // phpBlog version
-$phpblog_version = "2.8.1";
+$phpblog_version = "2.9.1";
 
 // --- MODIFICATION : Correction du chemin ---
 $configfile = __DIR__ . '/config.php'; // Utilise le chemin absolu du dossier de core.php
@@ -243,7 +243,9 @@ function emoticons($text)
         ':poop:' => '💩',
         ':|]' => '🤖'
     );
-    return $text;
+    // --- CORRECTION ---
+    // On remplace les codes (clés) par les emojis (valeurs)
+    return str_replace(array_keys($icons), array_values($icons), $text);    
 }
 
 function generateSeoURL($string, $random_numbers = 1, $wordLimit = 8) { 
@@ -1207,6 +1209,34 @@ if($settings['background_image'] != "") {
     }';
 }
 ?>
+/* --- CSS MEGA MENU RESPONSIVE --- */
+
+/* 1. Par défaut (Mobile) : Le menu prend 100% de la largeur et s'empile */
+.mega-menu-custom {
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    margin-top: 0;
+    padding: 0;
+}
+
+/* 2. Sur PC (Écrans > 992px) : On applique le style "Mega Menu Centré" */
+@media (min-width: 992px) {
+    .nav-item.dropdown {
+        position: relative; /* Le parent redevient la référence */
+    }
+    
+    .mega-menu-custom {
+        position: absolute;
+        min-width: 900px; /* Largeur fixe pour PC */
+        left: 50%;
+        transform: translateX(-30%); /* Centrage parfait */
+        border-top: 3px solid #007bff;
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); /* Ombre uniquement sur PC */
+        border-radius: 0.25rem;
+        padding: 1rem 0;
+    }
+}
         </style>
         
 <?php
@@ -1472,10 +1502,117 @@ if ($settings['layout'] == 'Wide') {
 						</a>
 					</li>';
         }
+    // ... fin de la boucle des menus standards ...
     }
 ?>
-				</ul>
+<?php
+    // --- AFFICHAGE DES MEGA MENUS DYNAMIQUES (Table 'mega_menus') ---
+    $mm_query = mysqli_query($connect, "SELECT * FROM mega_menus WHERE active='Yes' ORDER BY position_order ASC");
+    
+    while ($mm = mysqli_fetch_assoc($mm_query)) {
+        
+        // 1. Vérifier la visibilité des colonnes
+        $show_col_2 = ($mm['col_2_type'] != 'none');
+        $show_col_3 = ($mm['col_3_type'] != 'none');
+
+        // 2. Calculer la largeur idéale du menu (PC uniquement)
+        // Par défaut 900px. On réduit si on cache des colonnes.
+        $custom_width = '900px'; 
+        if (!$show_col_2 && !$show_col_3) {
+            $custom_width = '250px'; // Une seule colonne (Explore)
+        } elseif (!$show_col_2 || !$show_col_3) {
+            $custom_width = '600px'; // Deux colonnes
+        }
+
+        echo '<li class="nav-item dropdown">
+                <a href="' . htmlspecialchars($mm['trigger_link']) . '" class="nav-link dropdown-toggle px-2" data-bs-toggle="dropdown">
+                    <i class="fa ' . htmlspecialchars($mm['trigger_icon']) . '"></i> ' . htmlspecialchars($mm['trigger_text']) . ' 
+                </a>
                 
+                <div class="dropdown-menu mega-menu-custom bg-white" style="min-width: ' . $custom_width . ';">
+                    <div class="px-4 py-3">
+                        <div class="row g-4">
+                            
+                            <div class="col-12 col-lg-2 border-end-lg">
+                                <h6 class="text-uppercase fw-bold text-primary mb-3 pt-2" style="font-size: 0.85rem;">
+                                    ' . htmlspecialchars($mm['col_1_title']) . '
+                                </h6>
+                                <div class="text-small">
+                                    ' . $mm['col_1_content'] . ' 
+                                </div>
+                            </div>';
+
+                            // --- COLONNE 2 (Conditionnelle) ---
+                            if ($show_col_2) {
+                                echo '<div class="col-12 col-lg-4 border-end-lg">
+                                        <h6 class="text-uppercase fw-bold text-secondary mb-3 pt-2" style="font-size: 0.85rem;">
+                                            ' . htmlspecialchars($mm['col_2_title']) . '
+                                        </h6>
+                                        <div class="row">';
+                                
+                                if ($mm['col_2_type'] == 'categories') {
+                                    $run_cats = mysqli_query($connect, "SELECT * FROM `categories` ORDER BY category ASC");
+                                    while ($rc = mysqli_fetch_assoc($run_cats)) {
+                                        echo '<div class="col-6 mb-1">
+                                                <a class="dropdown-item rounded px-2 py-1 small text-truncate" href="category?name=' . htmlspecialchars($rc['slug']) . '">
+                                                    <i class="fas fa-angle-right text-muted me-1"></i> ' . htmlspecialchars($rc['category']) . '
+                                                </a>
+                                              </div>';
+                                    }
+                                } elseif ($mm['col_2_type'] == 'custom') {
+                                    echo '<div class="col-12">' . $mm['col_2_content'] . '</div>';
+                                }
+                                
+                                echo '  </div>
+                                    </div>';
+                            }
+
+                            // --- COLONNE 3 (Conditionnelle) ---
+                            if ($show_col_3) {
+                                echo '<div class="col-12 col-lg-6">
+                                        <h6 class="text-uppercase fw-bold text-success mb-3 pt-2" style="font-size: 0.85rem;">
+                                            ' . htmlspecialchars($mm['col_3_title']) . '
+                                        </h6>
+                                        <div class="row g-3">';
+                                
+                                if ($mm['col_3_type'] == 'latest_posts') {
+                                    $recent_q = mysqli_query($connect, "SELECT title, slug, image, created_at FROM posts WHERE active='Yes' AND publish_at <= NOW() ORDER BY id DESC LIMIT 4");
+                                    if(mysqli_num_rows($recent_q) > 0){
+                                        while($post = mysqli_fetch_assoc($recent_q)){
+                                            $img_src = $post['image'] != '' ? htmlspecialchars($post['image']) : 'assets/img/no-image.png';
+                                            if($post['image'] == '') {
+                                                 $img_display = '<div class="bg-light d-flex align-items-center justify-content-center text-muted small" style="height: 60px; width: 80px; border-radius: 4px;"><i class="fas fa-image"></i></div>';
+                                            } else {
+                                                 $img_display = '<img src="' . $img_src . '" class="img-fluid rounded" style="height: 60px; width: 80px; object-fit: cover;" alt="Post">';
+                                            }
+                                            echo '
+                                            <div class="col-12 col-md-6">
+                                                <a href="post?name=' . htmlspecialchars($post['slug']) . '" class="text-decoration-none link-dark d-flex align-items-center p-1 rounded hover-bg-light">
+                                                    <div class="flex-shrink-0 me-2">' . $img_display . '</div>
+                                                    <div class="flex-grow-1" style="min-width: 0;">
+                                                        <h6 class="mb-0 small fw-bold text-truncate" style="line-height: 1.4;">' . htmlspecialchars($post['title']) . '</h6>
+                                                        <small class="text-muted" style="font-size: 0.75rem;">' . date('M d, Y', strtotime($post['created_at'])) . '</small>
+                                                    </div>
+                                                </a>
+                                            </div>';
+                                        }
+                                    } else { echo '<div class="col-12 text-muted">No posts.</div>'; }
+                                } elseif ($mm['col_3_type'] == 'custom') {
+                                    echo '<div class="col-12">' . $mm['col_3_content'] . '</div>';
+                                }
+
+                                echo '  </div>
+                                    </div>';
+                            }
+
+        echo '          </div> </div>
+                </div>
+              </li>';
+    }
+?>  
+				</ul>
+
+           
                 <ul class="navbar-nav ms-auto d-flex flex-row align-items-center">
                     <li class="nav-item me-2">
                         <button class="btn btn-link nav-link theme-switcher" id="theme-switcher-btn" type="button" aria-label="Toggle theme">
@@ -1527,6 +1664,15 @@ if ($current_page == 'submit_post.php') {
                                     <i class="fas fa-pen-square"></i> Submit an article
 								</a>
 							</li>
+                            <li>
+                                <a class="dropdown-item <?php 
+if ($current_page == 'submit_testimonial.php'){ 
+	echo ' active';
+}
+?>" href="submit_testimonial.php"> 
+                                    <i class="fas fa-star text-warning"></i> Add Testimonial
+                                </a>
+                            </li>                            
 							<li>
 								<a class="dropdown-item <?php
 if ($current_page == 'my-favorites.php') { 
@@ -1640,8 +1786,147 @@ function sidebar() {
 ?>
 			<div id="sidebar" class="col-md-4">
 
-				<div class="card">
-					<div class="card-header"><i class="fas fa-list"></i> Categories</div>
+<?php
+    // --- WIDGET SONDAGE (POLL) ---
+    // Récupérer le dernier sondage actif
+    $poll_q = mysqli_query($connect, "SELECT * FROM polls WHERE active='Yes' ORDER BY id DESC LIMIT 1");
+    
+    if (mysqli_num_rows($poll_q) > 0) {
+        $poll = mysqli_fetch_assoc($poll_q);
+        $poll_id = $poll['id'];
+        
+        // Vérifier si l'utilisateur a déjà voté (Cookie ou IP)
+        $user_ip = $_SERVER['REMOTE_ADDR'];
+        $has_voted = false;
+        if (isset($_COOKIE['poll_voted_' . $poll_id])) {
+            $has_voted = true;
+        } else {
+            $check_vote = mysqli_query($connect, "SELECT id FROM poll_voters WHERE poll_id='$poll_id' AND ip_address='$user_ip'");
+            if (mysqli_num_rows($check_vote) > 0) {
+                $has_voted = true;
+            }
+        }
+?>
+    <div class="card mb-3">
+        <div class="card-header">
+            <i class="fas fa-poll-h"></i> Poll of the week
+        </div>
+        <div class="card-body" id="poll-container-<?php echo $poll_id; ?>">
+            <h6 class="card-title fw-bold mb-3"><?php echo htmlspecialchars($poll['question']); ?></h6>
+            
+            <?php if (!$has_voted): ?>
+                <form id="poll-form-<?php echo $poll_id; ?>">
+                    <input type="hidden" name="poll_id" value="<?php echo $poll_id; ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    
+                    <div class="poll-options mb-3">
+                        <?php
+                        $opts_q = mysqli_query($connect, "SELECT * FROM poll_options WHERE poll_id='$poll_id' ORDER BY id ASC");
+                        while ($opt = mysqli_fetch_assoc($opts_q)) {
+                            echo '
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="option_id" id="opt-'.$opt['id'].'" value="'.$opt['id'].'">
+                                <label class="form-check-label" for="opt-'.$opt['id'].'">
+                                    '.htmlspecialchars($opt['title']).'
+                                </label>
+                            </div>';
+                        }
+                        ?>
+                    </div>
+                    <div id="poll-msg-<?php echo $poll_id; ?>" class="text-danger small mb-2"></div>
+                    <button type="button" onclick="submitPoll(<?php echo $poll_id; ?>)" class="btn btn-sm btn-primary w-100">Vote</button>
+                </form>
+            <?php endif; ?>
+
+            <div id="poll-results-<?php echo $poll_id; ?>" style="<?php echo ($has_voted ? '' : 'display:none;'); ?>">
+                <?php
+                // Calcul initial (si déjà voté, on affiche direct)
+                if ($has_voted) {
+                    $total_v = 0;
+                    $res_data = [];
+                    $res_q = mysqli_query($connect, "SELECT * FROM poll_options WHERE poll_id='$poll_id'");
+                    while($r = mysqli_fetch_assoc($res_q)) { 
+                        $res_data[] = $r; 
+                        $total_v += $r['votes']; 
+                    }
+                    
+                    foreach ($res_data as $row) {
+                        $percent = ($total_v > 0) ? round(($row['votes'] / $total_v) * 100) : 0;
+                        echo '
+                        <small>'.htmlspecialchars($row['title']).' ('.$percent.'%)</small>
+                        <div class="progress mb-2" style="height: 10px;">
+                            <div class="progress-bar" role="progressbar" style="width: '.$percent.'%;" aria-valuenow="'.$percent.'" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>';
+                    }
+                    echo '<div class="text-center small text-muted mt-2">Total votes: '.$total_v.'</div>';
+                    echo '<div class="alert alert-success py-1 px-2 mt-2 small text-center"><i class="fas fa-check"></i> You have voted!</div>';
+                }
+                ?>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function submitPoll(pollId) {
+        const form = document.getElementById('poll-form-' + pollId);
+        const formData = new FormData(form);
+        const msgDiv = document.getElementById('poll-msg-' + pollId);
+        
+        // Validation simple côté client
+        if(!formData.get('option_id')) {
+            msgDiv.innerText = "Please select an option.";
+            return;
+        }
+        msgDiv.innerText = "Sending...";
+
+        fetch('ajax_vote_poll.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Cacher le formulaire
+                form.style.display = 'none';
+                
+                // Générer le HTML des résultats
+                let html = '';
+                let total = data.total_votes;
+                
+                data.results.forEach(opt => {
+                    let percent = (total > 0) ? Math.round((opt.votes / total) * 100) : 0;
+                    html += `<small>${opt.title} (${percent}%)</small>
+                             <div class="progress mb-2" style="height: 10px;">
+                                <div class="progress-bar" role="progressbar" style="width: ${percent}%;"></div>
+                             </div>`;
+                });
+                
+                html += `<div class="text-center small text-muted mt-2">Total votes: ${total}</div>`;
+                html += `<div class="alert alert-success py-1 px-2 mt-2 small text-center"><i class="fas fa-check"></i> ${data.message}</div>`;
+                
+                const resDiv = document.getElementById('poll-results-' + pollId);
+                resDiv.innerHTML = html;
+                $(resDiv).fadeIn(); // Effet jQuery doux
+                
+            } else {
+                msgDiv.innerText = data.message;
+            }
+        })
+        .catch(error => {
+            msgDiv.innerText = "Error connecting to server.";
+            console.error(error);
+        });
+    }
+    </script>
+<?php
+    }
+    // --- FIN WIDGET SONDAGE ---
+?>
+
+				<div class="card mb-3">
+					<div class="card-header">
+                        <i class="fas fa-list"></i> Categories
+                    </div>
 					<div class="card-body">
 						<ul class="list-group">
 <?php
@@ -1672,8 +1957,10 @@ function sidebar() {
 					</div>
 				</div>
 				
-				<div class="card mt-3">
-					<div class="card-header"><i class="fas fa-tags"></i> Popular Tags</div>
+				<div class="card mb-3">
+					<div class="card-header">
+                        <i class="fas fa-tags"></i> Popular Tags
+                    </div>
 					<div class="card-body">
 						<div class="d-flex flex-wrap">
 <?php
@@ -1715,12 +2002,12 @@ function sidebar() {
 						<ul class="nav nav-tabs card-header-tabs nav-justified">
 							<li class="nav-item active">
 								<a class="nav-link active" href="#popular" data-bs-toggle="tab">
-									Popular Posts
+									<i class="fas fa-list"></i> Popular Posts
 								</a>
 							</li>
 							<li class="nav-item">
 								<a class="nav-link" href="#commentss" data-bs-toggle="tab">
-									Recent Comments
+									<i class="fas fa-comments"></i> Recent Comments
 								</a>
 							</li>
 						</ul>
@@ -1835,24 +2122,22 @@ function sidebar() {
                     </div>
                 </div>
 				
-				<div class="p-4 mt-3 bg-body-tertiary rounded text-dark">
-					<h6><i class="fas fa-envelope-open-text"></i> Subscribe</h6><hr />
-					
-					<p class="mb-3">Get the latest news and exclusive offers</p>
-					
-					<form action="" method="POST">
-						<div class="input-group">
-							<input type="email" class="form-control" placeholder="E-Mail Address" name="email" required />
-							<span class="input-group-btn">
-								<button class="btn btn-primary" type="submit" name="subscribe">Subscribe</button>
-							</span>
-						</div>
-					</form>
+                <div class="card mt-3">
+					<div class="card-header"><i class="fas fa-envelope-open-text"></i> Subscribe</div>
+					<div class="card-body">
+                        <p class="small mb-3">Get the latest news and exclusive offers.</p>
+                        
+                        <form action="" method="POST">
+                            <div class="input-group">
+                                <input type="email" class="form-control" placeholder="E-Mail Address" name="email" required />
+                                <button class="btn btn-primary" type="submit" name="subscribe">Subscribe</button>
+                            </div>
+                        </form>
 <?php
     if (isset($_POST['subscribe'])) {
-        $email = $_POST['email']; // $_POST est déjà filtré au début du script
+        $email = $_POST['email']; 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            echo '<div class="alert alert-danger">The entered E-Mail Address is invalid</div>';
+            echo '<div class="alert alert-danger mt-2 small p-2">The entered E-Mail Address is invalid</div>';
         } else {
             // Requête préparée pour vérifier l'existence
             $stmt_sub_check = mysqli_prepare($connect, "SELECT email FROM `newsletter` WHERE email=? LIMIT 1");
@@ -1861,20 +2146,21 @@ function sidebar() {
             $result_sub_check = mysqli_stmt_get_result($stmt_sub_check);
             
             if (mysqli_num_rows($result_sub_check) > 0) {
-                echo '<div class="alert alert-warning">This E-Mail Address is already subscribed.</div>';
+                echo '<div class="alert alert-warning mt-2 small p-2">This E-Mail Address is already subscribed.</div>';
             } else {
                 // Requête préparée pour l'insertion
                 $stmt_sub_insert = mysqli_prepare($connect, "INSERT INTO `newsletter` (email) VALUES (?)");
                 mysqli_stmt_bind_param($stmt_sub_insert, "s", $email);
                 mysqli_stmt_execute($stmt_sub_insert);
                 mysqli_stmt_close($stmt_sub_insert);
-                echo '<div class="alert alert-success">You have successfully subscribed to our newsletter.</div>';
+                echo '<div class="alert alert-success mt-2 small p-2">You have successfully subscribed to our newsletter.</div>';
             }
             mysqli_stmt_close($stmt_sub_check);
         }
     }
 ?>
-				</div>
+                    </div>
+                </div>
 
 <?php
     // Requête simple sans variable externe
