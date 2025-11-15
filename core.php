@@ -2,10 +2,15 @@
 // Inclure l'autoloader de Composer
 require_once __DIR__ . '/vendor/autoload.php';
 
-// Variable de version (comme dans config.php)
-// $phpblog_version = "2.9.4";
+// --- Variable de version ---
+// $phpblog_version = "x.x.x"; // Définie dans config.php
 
+// ------------------------------------------------------------
 // --- MODIFICATION : Correction du chemin ---
+// ------------------------------------------------------------
+
+// Rediriger vers l'installation si le fichier de configuration est manquant
+// Vérifier si le fichier de configuration existe
 $configfile = __DIR__ . '/config.php'; // Utilise le chemin absolu du dossier de core.php
 if (!file_exists($configfile)) {
     // MODIFICATION : Correction de l'URL de redirection (ajout de ../)
@@ -22,16 +27,19 @@ if (!file_exists($configfile)) {
 
 session_start();
 
-// --- NOUVEL AJOUT : Protection CSRF ---
+// ------------------------------------------------------------
+// --- Protection CSRF ---
+// ------------------------------------------------------------
+
 // Générer un jeton CSRF unique s'il n'existe pas déjà dans la session
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-// --- FIN AJOUT ---
+// --- FIN Protection CSRF ---
 
 include "config.php";
 
-// --- NOUVEAU : Charger les paramètres depuis la BDD (structure à 1 ligne) ---
+// --- Charger les paramètres depuis la BDD (structure à 1 ligne) ---
 $settings = array(); // Initialiser le tableau
 $stmt_settings = mysqli_prepare($connect, "SELECT * FROM settings WHERE id = 1");
 
@@ -61,7 +69,11 @@ if ($stmt_settings) { // Vérifier si la préparation a réussi
 }
 // --- FIN DE LA MODIFICATION ---
 
-// --- NOUVEAU : VÉRIFICATION DU MODE MAINTENANCE ---
+
+// ------------------------------------------------------------
+// --- VÉRIFICATION DU MODE MAINTENANCE ---
+// ------------------------------------------------------------
+
 if ($settings['maintenance_mode'] == 'On') {
 
     // 1. Vérifier si l'utilisateur est un admin
@@ -124,7 +136,11 @@ if ($settings['maintenance_mode'] == 'On') {
 }
 // --- FIN VÉRIFICATION MAINTENANCE ---
 
+
+// ------------------------------------------------------------
 // --- MODIFICATION MODE SOMBRE (DÉFINITION GLOBALE) ---
+// ------------------------------------------------------------
+
 // Définir les variables de thème ici pour les rendre globales
 $light_theme_name = $settings['theme'];
 $dark_theme_name = "Darkly"; // Vous pouvez changer ceci pour "Slate" ou "Superhero" si vous préférez
@@ -298,15 +314,35 @@ function get_purifier() {
         $config = HTMLPurifier_Config::createDefault();
         $config->set('Cache.SerializerPath', __DIR__ . '/cache');
         
-        // --- NOS 3 MODIFICATIONS ---
+        // --- MODIFICATIONS POUR IFRAME (YouTube/Vimeo) ---
         
-        // 1. Autoriser l'attribut 'style' sur les images
-        $config->set('HTML.Allowed', 'p,b,i,u,s,a[href|title],ul,ol,li,br,img[src|alt|title|width|height|style],span[style],blockquote,pre,h1,h2,h3,h4,h5,h6,table,thead,tbody,tr,th,td');
+        // 1. Activer le module SafeIframe (gère src, width, height, etc.)
+        $config->set('HTML.SafeIframe', true);
         
-        // 2. Autoriser les images 'data:' (pour que l'image s'affiche)
-        $config->set('URI.AllowedSchemes', array('http' => true, 'https' => true, 'mailto' => true, 'ftp' => true, 'data' => true));
+        // 2. Définir la "liste blanche" des URL de confiance
+        // Ceci autorise :
+        // - http(s)://www.youtube.com/embed/
+        // - http(s)://www.youtube-nocookie.com/embed/
+        // - http(s)://player.vimeo.com/video/
+        $config->set('URI.SafeIframeRegexp', '%^(https?:)?//(www\.youtube(?:-nocookie)?\.com/embed/|player\.vimeo\.com/video/)%');
         
-        // 3. Autoriser 'width' et 'height' dans l'attribut style (pour que la taille soit respectée)
+        // 3. Mettre à jour la liste des éléments autorisés
+        // On ajoute 'iframe' et tous ses attributs nécessaires
+        $config->set('HTML.Allowed', 
+            'p,b,i,u,s,a[href|title],ul,ol,li,br,img[src|alt|title|width|height|style],span[style],blockquote,pre,h1,h2,h3,h4,h5,h6,table,thead,tbody,tr,th,td' .
+            ',iframe[src|width|height|frameborder|allow|allowfullscreen|title|referrerpolicy]' // <-- AJOUT ICI
+        );
+        
+        // 4. Autoriser les images 'data:' (votre modification existante)
+        $config->set('URI.AllowedSchemes', array(
+            'http' => true, 
+            'https' => true, 
+            'mailto' => true, 
+            'ftp' => true, 
+            'data' => true
+        ));
+        
+        // 5. Autoriser les propriétés CSS (votre modification existante)
         $config->set('CSS.AllowedProperties', 'width,height,text-decoration,color,background-color,font-weight,font-style,text-align');
         
         // --- FIN DES MODIFICATIONS ---
@@ -772,6 +808,173 @@ function get_reading_time($content, $wpm = 200) {
     
     // 5. Retourner la chaîne formatée
     return '<i class="far fa-clock"></i> Read: ' . $minutes . ' min';
+}
+
+/**
+ * Affiche un widget en fonction de son type.
+ *
+ * @param array $widget_row La ligne de la base de données pour le widget.
+ */
+function render_widget($widget_row) {
+    global $connect, $settings, $purifier; // Rendre les variables globales accessibles
+
+    // S'assurer que le purificateur est initialisé
+    if (!isset($purifier)) {
+        $purifier = get_purifier();
+    }
+    
+    // --- NOUVELLE LOGIQUE D'AFFICHAGE ---
+    $position = $widget_row['position'];
+    $type = $widget_row['widget_type'];
+
+    // Cas 1: Le widget est dans la Sidebar
+    if ($position == 'Sidebar') {
+        echo '
+            <div class="card mt-3">
+                  <div class="card-header">' . htmlspecialchars($widget_row['title']) . '</div>
+                  <div class="card-body">';
+    
+    // Cas 2: Le widget est en Header ou Footer
+    } else { 
+        // Si c'est un 'latest_posts' ou 'html', on n'affiche pas de 'card' par défaut,
+        // mais on affiche un titre pour 'latest_posts'.
+        if ($type == 'latest_posts') {
+             echo '<h5 class="mt-3">' . htmlspecialchars($widget_row['title']) . '</h5>';
+        } elseif ($type != 'html') {
+            // Les autres types (comme 'search') peuvent garder leur card
+             echo '
+                <div class="card mt-3">
+                      <div class="card-header">' . htmlspecialchars($widget_row['title']) . '</div>
+                      <div class="card-body">';
+        }
+    }
+    // --- FIN NOUVELLE LOGIQUE ---
+    
+
+    // --- Le Cerveau du système : un SWITCH ---
+    switch ($type) {
+
+        // CAS 1 : 'html'
+        case 'html':
+        default:
+            echo $purifier->purify($widget_row['content']);
+            break;
+
+        // CAS 2 : 'latest_posts' (VERSION AMÉLIORÉE)
+        case 'latest_posts':
+            // 1. Lire la configuration JSON
+            $config = json_decode($widget_row['config_data'], true);
+            $limit = isset($config['count']) ? (int)$config['count'] : 4; // Défaut à 4
+            
+            // 2. Exécuter une requête plus complète
+            $q_posts = mysqli_query($connect, "
+                SELECT id, title, slug, image, created_at 
+                FROM posts 
+                WHERE active='Yes' AND publish_at <= NOW() 
+                ORDER BY id DESC 
+                LIMIT $limit
+            ");
+
+            if (mysqli_num_rows($q_posts) == 0) {
+                echo '<p>Aucun article à afficher.</p>';
+            } else {
+                
+                // --- AFFICHAGE SELON LA POSITION ---
+                if ($position == 'Sidebar') {
+                    // --- AFFICHAGE SIDEBAR (Vertical, style "Popular Posts") ---
+                    while ($post = mysqli_fetch_assoc($q_posts)) {
+                        // Logique d'image (copiée de votre sidebar() originale)
+                        $image = "";
+                        if($post['image'] != "") {
+                            $image = '<img class="rounded shadow-1-strong me-1"
+                                    src="' . htmlspecialchars($post['image']) . '" alt="' . htmlspecialchars($post['title']) . '" width="70"
+                                    height="70" style="object-fit: cover;" />';
+                        } else {
+                            $image = '<svg class="bd-placeholder-img rounded shadow-1-strong me-1" width="70" height="70" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="No Image" preserveAspectRatio="xMidYMid slice" focusable="false">
+                            <title>Image</title><rect width="70" height="70" fill="#55595c"/>
+                            <text x="15%" y="50%" fill="#eceeef" dy=".1em">No Image</text></svg>';
+                        }
+                        
+                        echo '       
+                            <div class="mb-2 d-flex flex-start align-items-center bg-light rounded">
+                                <a href="post?name=' . htmlspecialchars($post['slug']) . '" class="ms-1">
+                                    ' . $image . '
+                                </a>
+                                <div class="mt-2 mb-2 ms-1 me-1" style="min-width: 0;"> <h6 class="text-primary mb-1 text-truncate"> <a href="post?name=' . htmlspecialchars($post['slug']) . '">' . htmlspecialchars($post['title']) . '</a>
+                                    </h6>
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-calendar"></i> ' . date($settings['date_format'], strtotime($post['created_at'])) . '<br />
+                                        <i class="fa fa-comments"></i> Comments: 
+                                            <a href="post?name=' . htmlspecialchars($post['slug']) . '#comments">
+                                                <b>' . post_commentscount($post['id']) . '</b>
+                                            </a>
+                                    </p>
+                                </div>
+                            </div>';
+                    }
+                } else {
+                    // --- AFFICHAGE HEADER/FOOTER (Horizontal, en grille) ---
+                    
+                    // Déterminer la classe de colonne (basé sur 12)
+                    $col_class = 'col-md-3'; // 4 articles
+                    if ($limit == 3) $col_class = 'col-md-4';
+                    if ($limit == 2) $col_class = 'col-md-6';
+                    if ($limit == 1) $col_class = 'col-md-12';
+                    if ($limit > 4) $col_class = 'col-md-3'; // Max 4 par ligne
+                    
+                    echo '<div class="row">'; // Ouvre la grille Bootstrap
+                    
+                    while ($post = mysqli_fetch_assoc($q_posts)) {
+                        // Logique d'image (copiée de votre index.php)
+                        $image = "";
+                        if($post['image'] != "") {
+                            $image = '<img src="' . htmlspecialchars($post['image']) . '" alt="' . htmlspecialchars($post['title']) . '" class="card-img-top" width="100%" height="150" style="object-fit: cover;"/>';
+                        } else {
+                            $image = '<svg class="bd-placeholder-img card-img-top" width="100%" height="150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail" preserveAspectRatio="xMidYMid slice" focusable="false">
+                            <title>No Image</title><rect width="100%" height="100%" fill="#55595c"/>
+                            <text x="40%" y="50%" fill="#eceeef" dy=".3em">No Image</text></svg>';
+                        }
+                        
+                        echo '
+                            <div class="' . $col_class . ' mb-3"> 
+                                <div class="card shadow-sm h-100 d-flex flex-column">
+                                    <a href="post?name=' . htmlspecialchars($post['slug']) . '">
+                                        '. $image .'
+                                    </a>
+                                    <div class="card-body d-flex flex-column flex-grow-1 p-3">
+                                        <a href="post?name=' . htmlspecialchars($post['slug']) . '" class="text-decoration-none"><h6 class="card-title text-primary small">' . htmlspecialchars(short_text($post['title'], 50)) . '</h6></a>
+                                        <small class="text-muted d-block mt-auto"> <i class="far fa-calendar-alt"></i> ' . date($settings['date_format'], strtotime($post['created_at'])) . '
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>';
+                    }
+                    echo '</div>'; // Ferme la grille Bootstrap
+                }
+            }
+            break;
+        
+        // CAS 3 : 'search'
+        case 'search':
+            echo '
+            <form action="search.php" method="GET">
+                <div class="input-group">
+                    <input type="search" class="form-control" placeholder="Rechercher..." name="q" required />
+                    <button class="btn btn-primary" type="submit" aria-label="Rechercher"><i class="fa fa-search"></i></button>
+                </div>
+            </form>';
+            break;
+            
+    }
+    
+    // --- FERMETURE DES CONTENEURS ---
+    if ($position == 'Sidebar' || ($position != 'Sidebar' && $type != 'latest_posts' && $type != 'html')) {
+         echo '
+              </div>
+        </div>
+        ';
+    }
+    // --- FIN FERMETURE ---
 }
 
 // --- DÉBUT DE LA NOUVELLE FONCTION ---
@@ -1759,21 +1962,14 @@ if ($settings['layout'] == 'Wide') {
 ?> mt-3">
 	
 <?php
-// Requête simple sans variable externe
+// --- ✨✨ MODIFICATION ICI ✨✨ ---
+// Requête pour les widgets de type "header"
 $run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'header' AND active = 'Yes' ORDER BY id ASC");
 while ($row = mysqli_fetch_assoc($run)) {
-    // Initialiser HTML Purifier via la nouvelle fonction
-    $purifier = get_purifier();
-
-    echo '
-		<div class="card mb-3">
-			<div class="card-header">' . htmlspecialchars($row['title']) . '</div>
-			<div class="card-body">
-				' . $purifier->purify($row['content']) . '
-			</div>
-		</div>
-	';
+    // Appelle la nouvelle fonction d'affichage
+    render_widget($row);
 }
+// --- ✨✨ FIN DE LA MODIFICATION ✨✨ ---
 ?>
 	
         <div class="row">
@@ -1788,7 +1984,7 @@ function sidebar() {
 
 <?php
     // --- WIDGET SONDAGE (POLL) ---
-    // Récupérer le dernier sondage actif
+    // (Votre code original pour les SONDAGES reste ici, inchangé)
     $poll_q = mysqli_query($connect, "SELECT * FROM polls WHERE active='Yes' ORDER BY id DESC LIMIT 1");
     
     if (mysqli_num_rows($poll_q) > 0) {
@@ -1801,10 +1997,15 @@ function sidebar() {
         if (isset($_COOKIE['poll_voted_' . $poll_id])) {
             $has_voted = true;
         } else {
-            $check_vote = mysqli_query($connect, "SELECT id FROM poll_voters WHERE poll_id='$poll_id' AND ip_address='$user_ip'");
-            if (mysqli_num_rows($check_vote) > 0) {
+            // Requête préparée pour la vérification des votes
+            $stmt_check_vote = mysqli_prepare($connect, "SELECT id FROM poll_voters WHERE poll_id=? AND ip_address=?");
+            mysqli_stmt_bind_param($stmt_check_vote, "is", $poll_id, $user_ip);
+            mysqli_stmt_execute($stmt_check_vote);
+            $result_check_vote = mysqli_stmt_get_result($stmt_check_vote);
+            if (mysqli_num_rows($result_check_vote) > 0) {
                 $has_voted = true;
             }
+            mysqli_stmt_close($stmt_check_vote);
         }
 ?>
     <div class="card mb-3">
@@ -2163,50 +2364,34 @@ function sidebar() {
                 </div>
 
 <?php
-    // Requête simple sans variable externe
-    $run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'sidebar' AND active = 'Yes' ORDER BY id ASC");
-    if (mysqli_num_rows($run) > 0) {
-        $purifier = get_purifier();
-        while ($row = mysqli_fetch_assoc($run)) {
-            echo '	
-    				<div class="card mt-3">
-    					  <div class="card-header">' . htmlspecialchars($row['title']) . '</div>
-    					  <div class="card-body">
-    						' . $purifier->purify($row['content']) . '
-    					  </div>
-    				</div>
-    ';
-        }
-    }
+// --- ✨✨ MODIFICATION ICI ✨✨ ---
+// Requête pour les widgets de type "sidebar"
+$run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'sidebar' AND active = 'Yes' ORDER BY id ASC");
+while ($row = mysqli_fetch_assoc($run)) {
+    // Appelle la nouvelle fonction d'affichage
+    render_widget($row);
+}
+// --- ✨✨ FIN DE LA MODIFICATION ✨✨ ---
 ?>
 			</div>
 		
 <?php
-}    
+}
+
 function footer()
 {
     // Rendre les variables globales accessibles
-    global $phpblog_version, $connect, $settings, $light_theme_url, $dark_theme_url, $purifier;
+    global $phpblog_version, $connect, $settings, $purifier;
 ?>
     		</div> <?php
-    // Boucle pour les Widgets de pied de page (INCHANGÉE)
+    // --- ✨✨ MODIFICATION ICI ✨✨ ---
+    // Requête pour les widgets de type "footer"
     $run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'footer' AND active = 'Yes' ORDER BY id ASC");
-    if (mysqli_num_rows($run) > 0) {
-        if (!isset($purifier)) {
-            // S'assurer que get_purifier() est appelée si $purifier n'existe pas
-            $purifier = get_purifier();
-        }
-        while ($row = mysqli_fetch_assoc($run)) {
-            echo '		
-    				<div class="card mt-3">
-    					<div class="card-header">' . htmlspecialchars($row['title']) . '</div>
-    					<div class="card-body">
-    						' . $purifier->purify($row['content']) . '
-    					</div>
-    			</div>
-    	';
-        }
+    while ($row = mysqli_fetch_assoc($run)) {
+        // Appelle la nouvelle fonction d'affichage
+        render_widget($row);
     }
+    // --- ✨✨ FIN DE LA MODIFICATION ✨✨ ---
     ?>
     	</div>	<footer class="bg-dark text-light pt-5 pb-3 mt-3">
         <div class="<?php echo ($settings['layout'] == 'Wide') ? 'container-fluid' : 'container'; ?>">
@@ -2330,7 +2515,9 @@ if ($stmt_popups) {
 if (!empty($popups_to_show)) {
 
     // S'assurer que HTMLPurifier est prêt
-    $purifier = get_purifier();
+    if (!isset($purifier)) {
+        $purifier = get_purifier();
+    }
 
     foreach ($popups_to_show as $popup) {
         $modal_id = 'popupModal' . (int)$popup['id'];
