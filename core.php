@@ -2,8 +2,8 @@
 // Inclure l'autoloader de Composer
 require_once __DIR__ . '/vendor/autoload.php';
 
-// phpBlog version
-$phpblog_version = "2.9.4";
+// Variable de version (comme dans config.php)
+// $phpblog_version = "2.9.4";
 
 // --- MODIFICATION : Correction du chemin ---
 $configfile = __DIR__ . '/config.php'; // Utilise le chemin absolu du dossier de core.php
