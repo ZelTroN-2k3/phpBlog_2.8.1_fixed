@@ -3,7 +3,7 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 // phpBlog version
-$phpblog_version = "2.9.1";
+$phpblog_version = "2.9.4";
 
 // --- MODIFICATION : Correction du chemin ---
 $configfile = __DIR__ . '/config.php'; // Utilise le chemin absolu du dossier de core.php
@@ -1670,7 +1670,7 @@ if ($current_page == 'submit_testimonial.php'){
 	echo ' active';
 }
 ?>" href="submit_testimonial.php"> 
-                                    <i class="fas fa-star text-warning"></i> Add Testimonial
+                                    <i class="fas fa-star"></i> Add Testimonial
                                 </a>
                             </li>                            
 							<li>
