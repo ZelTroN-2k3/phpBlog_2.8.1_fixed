@@ -1,8 +1,8 @@
 <?php
 include "header.php";
 
-// Variable de version (comme dans config.php)
-// $phpblog_version = "2.9.4"; 
+// --- Variable de version ---
+// $phpblog_version = "x.x.x"; // Définie dans config.php
 
 // ------------------------------------------------------------
 // --- LOGIQUE DE LA PAGE DASHBOARD ---

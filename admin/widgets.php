@@ -1,14 +1,25 @@
 <?php
 include "header.php";
 
-// --- LOGIQUE DE STATUT (pour les redirections) ---
+// --- LOGIQUE : CONSERVATION DU STATUT ---
 $status_url_param = ''; // Format &status=...
 $status_url_query = ''; // Format ?status=...
-if (isset($_GET['status']) && $_GET['status'] != 'all') {
-    $status_param = htmlspecialchars($_GET['status']);
+$current_status = $_GET['status'] ?? 'all'; // 'all', 'published', 'draft'
+
+$status_sql = ""; // Condition SQL
+if ($current_status == 'published') {
+    $status_sql = " WHERE active='Yes'";
+} elseif ($current_status == 'draft') {
+    $status_sql = " WHERE active='No'";
+}
+
+if ($current_status != 'all') {
+    $status_param = htmlspecialchars($current_status);
     $status_url_param = '&status=' . $status_param;
     $status_url_query = '?status=' . $status_param;
 }
+// --- FIN LOGIQUE ---
+
 
 // --- ✨ NOUVELLE LOGIQUE POUR LES ACTIONS EN MASSE (WIDGETS) ---
 if (isset($_POST['apply_bulk_action'])) {
@@ -166,6 +177,7 @@ if (isset($_GET['delete-id'])) {
     <div class="container-fluid">
 
 <?php
+// --- VUE MODIFICATION ---
 if (isset($_GET['edit-id'])) {
     $id  = (int) $_GET["edit-id"];
     
@@ -181,54 +193,144 @@ if (isset($_GET['edit-id'])) {
         exit;
     }
     
+    // --- NOUVELLE LOGIQUE DE SAUVEGARDE (ÉDITION) ---
     if (isset($_POST['edit'])) {
         validate_csrf_token();
         
         $title    = $_POST['title'];
-        $content  = $_POST['content'];
         $position = $_POST['position'];
-        $active   = $_POST['active']; // ✨ NOUVEAU
-        
-        // ✨ MODIFIÉ : Ajout de 'active'
-        $stmt = mysqli_prepare($connect, "UPDATE widgets SET title=?, content=?, position=?, active=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt, "ssssi", $title, $content, $position, $active, $id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
+        $active   = $_POST['active'];
+        $widget_type = $_POST['widget_type']; // Récupérer le type
+
+        // Champs spécifiques (initialisés à NULL)
+        $content     = null;
+        $config_data = null;
+
+        // Remplir les champs spécifiques selon le type
+        switch ($widget_type) {
+            case 'html':
+                $content = $_POST['content'];
+                break;
+                
+            case 'latest_posts':
+                $limit = (int)$_POST['limit'];
+                $config = ['count' => $limit]; // Créer un tableau de configuration
+                $config_data = json_encode($config); // Encoder en JSON
+                break;
+                
+            case 'search':
+                // Ce type n'a besoin d'aucune configuration
+                break;
+        }
+
+        // Requête de mise à jour
+        $stmt_update = mysqli_prepare($connect, "UPDATE widgets SET title = ?, content = ?, config_data = ?, position = ?, active = ? WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_update, "sssssi", $title, $content, $config_data, $position, $active, $id);
+        mysqli_stmt_execute($stmt_update);
+        mysqli_stmt_close($stmt_update);
         
         echo '<meta http-equiv="refresh" content="0;url=widgets.php' . $status_url_query . '">';
         exit;
     }
+    // --- FIN NOUVELLE LOGIQUE DE SAUVEGARDE ---
+    
+    // Logique pour le nom et l'icône
+    $widget_name = '';
+    $widget_icon = 'fas fa-puzzle-piece';
+
+    switch ($row['widget_type']) {
+        case 'html':
+            $widget_name = 'HTML Personnalisé';
+            $widget_icon = 'fas fa-code';
+            break;
+        case 'latest_posts':
+            $widget_name = 'Articles Récents';
+            $widget_icon = 'fas fa-list-ul';
+            break;
+        case 'search':
+            $widget_name = 'Barre de Recherche';
+            $widget_icon = 'fas fa-search';
+            break;
+    }
 ?>
             <div class="card card-primary card-outline mb-3">
                 <div class="card-header">
-                    <h3 class="card-title">Edit Widget</h3>
+                     <h3 class="card-title"><i class="<?php echo $widget_icon; ?>"></i> Edit Widget: <?php echo htmlspecialchars($row['title']); ?></h3>
                 </div>
-                <form action="" method="post">
+                <form action="widgets.php?edit-id=<?php echo $id; ?><?php echo $status_url_param; ?>" method="post">
                     <div class="card-body">
                         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                        <input type="hidden" name="widget_type" value="<?php echo htmlspecialchars($row['widget_type']); ?>">
+                        
+                        <div class="alert alert-light">
+                            <strong>Type de Widget :</strong> <?php echo $widget_name; ?> (Non modifiable)
+                        </div>
+
                         <div class="form-group">
                             <label>Title</label>
                             <input class="form-control" name="title" value="<?php echo htmlspecialchars($row['title']); ?>" type="text" required>
                         </div>
-                        <div class="form-group">
-                            <label>Content</label>
-                            <textarea class="form-control" id="summernote" name="content" required><?php echo html_entity_decode($row['content']); ?></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Position:</label>
-                            <select class="form-control" name="position" required>
-                                <option value="Sidebar" <?php if ($row['position'] == 'Sidebar') { echo 'selected'; } ?>>Sidebar</option>
-                                <option value="Header" <?php if ($row['position'] == 'Header') { echo 'selected'; } ?>>Header</option>
-                                <option value="Footer" <?php if ($row['position'] == 'Footer') { echo 'selected'; } ?>>Footer</option>
-                            </select>
-                        </div>
+
+                        <?php 
+                        // --- AFFICHAGE DES CHAMPS SPÉCIFIQUES ---
+                        switch ($row['widget_type']):
                         
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select class="form-control" name="active" required>
-                                <option value="Yes" <?php if ($row['active'] == 'Yes') echo 'selected'; ?>>Published</option>
-                                <option value="No" <?php if ($row['active'] == 'No') echo 'selected'; ?>>Draft</option>
-                            </select>
+                            // CAS 1: HTML
+                            case 'html': 
+                        ?>
+                                <div class="form-group">
+                                    <label>Content</label>
+                                    <textarea class="form-control" id="summernote" name="content" required><?php echo htmlspecialchars($row['content']); ?></textarea>
+                                </div>
+                        <?php 
+                                break; 
+                            
+                            // CAS 2: ARTICLES RÉCENTS
+                            case 'latest_posts': 
+                                // 1. Lire la configuration JSON
+                                $config = json_decode($row['config_data'], true);
+                                $limit = $config['count'] ?? 5; // Valeur par défaut
+                        ?>
+                                <div class="form-group">
+                                    <label>Nombre d'articles à afficher</label>
+                                    <input class="form-control" name="limit" value="<?php echo (int)$limit; ?>" type="number" required style="width: 200px;">
+                                </div>
+                        <?php 
+                                break;
+                                
+                            // CAS 3: RECHERCHE
+                            case 'search': 
+                        ?>
+                                <div class="alert alert-info">
+                                    Ce widget n'a pas besoin de configuration supplémentaire.
+                                </div>
+                        <?php 
+                                break; 
+                        
+                        endswitch; 
+                        // --- FIN DES CHAMPS SPÉCIFIQUES ---
+                        ?>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Position:</label>
+                                    <select class="form-control" name="position" required>
+                                        <option value="Sidebar" <?php if ($row['position'] == 'Sidebar') { echo 'selected'; } ?>>Sidebar</option>
+                                        <option value="Header" <?php if ($row['position'] == 'Header') { echo 'selected'; } ?>>Header</option>
+                                        <option value="Footer" <?php if ($row['position'] == 'Footer') { echo 'selected'; } ?>>Footer</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Status</label>
+                                    <select class="form-control" name="active" required>
+                                        <option value="Yes" <?php if ($row['active'] == 'Yes') echo 'selected'; ?>>Published</option>
+                                        <option value="No" <?php if ($row['active'] == 'No') echo 'selected'; ?>>Draft</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         
                     </div>
@@ -239,7 +341,7 @@ if (isset($_GET['edit-id'])) {
                 </form>
             </div>
 <?php
-}
+} else { // --- VUE LISTE (commence ici si pas d'edit-id) ---
 ?>
 
             <div class="card">
@@ -250,32 +352,23 @@ if (isset($_GET['edit-id'])) {
                 </div>
                 
                 <div class="card-body pb-0">
-                <?php
-                $current_status = $_GET['status'] ?? 'all';
-                $status_query_sql = '';
-                $status_url_param_in_loop = ''; // Pour les liens dans la boucle
-
-                if ($current_status == 'published') {
-                    $status_query_sql = " WHERE active = 'Yes'";
-                    $status_url_param_in_loop = '&status=published';
-                } elseif ($current_status == 'draft') {
-                    $status_query_sql = " WHERE active = 'No'";
-                    $status_url_param_in_loop = '&status=draft';
-                }
-                ?>
-                <div class="d-flex justify-content-start mb-0">
-                    <ul class="nav nav-pills">
-                        <li class="nav-item">
-                            <a class="nav-link <?php if ($current_status == 'all') echo 'active'; ?>" href="?status=all">All</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php if ($current_status == 'published') echo 'active'; ?>" href="?status=published">Published</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php if ($current_status == 'draft') echo 'active'; ?>" href="?status=draft">Draft</a>
-                        </li>
-                    </ul>
-                </div>
+                    <?php
+                    // Pas besoin de redéfinir $current_status ou $status_url_param_in_loop, ils sont déjà définis en haut.
+                    $status_url_param_in_loop = $status_url_param; // Juste pour clarifier
+                    ?>
+                    <div class="d-flex justify-content-start mb-0">
+                        <ul class="nav nav-pills">
+                            <li class="nav-item">
+                                <a class="nav-link <?php if ($current_status == 'all') echo 'active'; ?>" href="?status=all">All</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?php if ($current_status == 'published') echo 'active'; ?>" href="?status=published">Published</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?php if ($current_status == 'draft') echo 'active'; ?>" href="?status=draft">Draft</a>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
                 <form action="widgets.php<?php echo $status_url_query; ?>" method="post">
                     <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
@@ -285,7 +378,7 @@ if (isset($_GET['edit-id'])) {
                             <tr>
                                 <th style="width: 10px;"><input type="checkbox" id="select-all"></th>
                                 <th>Title</th>
-                                <th>Position</th>
+                                <th>Type</th> <th>Position</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -293,7 +386,7 @@ if (isset($_GET['edit-id'])) {
                             <tbody>
 <?php
 // ✨ MODIFIÉ : Requête SQL filtrée
-$query_sql = "SELECT * FROM widgets" . $status_query_sql . " ORDER BY id ASC";
+$query_sql = "SELECT * FROM widgets" . $status_sql . " ORDER BY id ASC";
 $query = mysqli_query($connect, $query_sql);
 $widgets = [];
 while($row = mysqli_fetch_assoc($query)) {
@@ -301,26 +394,36 @@ while($row = mysqli_fetch_assoc($query)) {
 }
 
 // Re-fetch avec le filtre pour trouver le last_id
-$query_last = mysqli_query($connect, "SELECT id FROM widgets" . $status_query_sql . " ORDER BY id DESC LIMIT 1");
+$query_last = mysqli_query($connect, "SELECT id FROM widgets" . $status_sql . " ORDER BY id DESC LIMIT 1");
 $row_last = mysqli_fetch_assoc($query_last);
 $last_id = $row_last ? $row_last['id'] : null;
 
 $first = true;
 
 foreach ($widgets as $row) {
+    
+    // Badge de statut
+    $status_badge = ($row['active'] == 'Yes') 
+        ? '<span class="badge bg-success">Published</span>' 
+        : '<span class="badge bg-warning">Draft</span>';
+    
+    // Nom du type pour affichage
+    $type_name = htmlspecialchars($row['widget_type']);
+    $type_icon = 'fa-puzzle-piece';
+    switch($row['widget_type']) {
+        case 'html': $type_name = 'HTML'; $type_icon = 'fa-code'; break;
+        case 'latest_posts': $type_name = 'Articles Récents'; $type_icon = 'fa-list-ul'; break;
+        case 'search': $type_name = 'Recherche'; $type_icon = 'fa-search'; break;
+    }
+    
     echo '
-                <tr>
-                    <td><input type="checkbox" name="widget_ids[]" value="' . $row['id'] . '"></td>
-	                <td>' . htmlspecialchars($row['title']) . '</td>
-					<td>' . htmlspecialchars($row['position']) . '</td>
-                    <td>';
-    if($row['active'] == "Yes") {
-		echo '<span class="badge bg-success">Published</span>';
-	} else {
-		echo '<span class="badge bg-warning">Draft</span>';
-	}
-    echo '</td>
-					<td>';
+                            <tr>
+                                <td><input type="checkbox" name="widget_ids[]" value="' . $row['id'] . '"></td>
+                                <td>' . htmlspecialchars($row['title']) . '</td>
+                                <td><span class="badge badge-info"><i class="fas ' . $type_icon . '"></i> ' . $type_name . '</span></td>
+                                <td>' . htmlspecialchars($row['position']) . '</td>
+                                <td>' . $status_badge . '</td>
+                                <td>';
     // ✨ MODIFIÉ : Liens d'action avec conservation du statut
     if (!$first) {
         echo '<a href="?up-id=' . $row['id'] . '&token=' . $csrf_token . $status_url_param_in_loop . '" title="Move Up" class="btn btn-secondary btn-sm"><i class="fa fa-arrow-up"></i></a> ';
@@ -328,29 +431,32 @@ foreach ($widgets as $row) {
     if ($row['id'] != $last_id) {
         echo '<a href="?down-id=' . $row['id'] . '&token=' . $csrf_token . $status_url_param_in_loop . '" title="Move Down" class="btn btn-secondary btn-sm"><i class="fa fa-arrow-down"></i></a> ';
     }
-					
+                                
 echo '<a href="?edit-id=' . $row['id'] . $status_url_param_in_loop . '" class="btn btn-primary btn-sm"><i class="fa fa-edit"></i> Edit</a>
-						<a href="?delete-id=' . $row['id'] . '&token=' . $csrf_token . $status_url_param_in_loop . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure you want to remove this widget?\');"><i class="fa fa-trash"></i> Delete</a>
-					</td>
-                </tr>
+                                <a href="?delete-id=' . $row['id'] . '&token=' . $csrf_token . $status_url_param_in_loop . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure you want to remove this widget?\');"><i class="fa fa-trash"></i> Delete</a>
+                                </td>
+                            </tr>
 ';
     $first = false;
 }
 ?>
-                        </tbody>
-                    </table>
-                  </div>
-                  <div class="card-footer">
-                        <select name="bulk_action" class="form-control" style="width: 200px; display: inline-block;">
-                            <option value="">Bulk Actions</option>
-                            <option value="publish">Publish</option>
-                            <option value="draft">Draft</option>
-                            <option value="delete">Delete</option>
-                        </select>
-                        <button type="submit" name="apply_bulk_action" class="btn btn-primary">Apply</button>
-                  </div>
+                            </tbody>
+                        </table>
+                    </div>
+                      <div class="card-footer">
+                            <select name="bulk_action" class="form-control" style="width: 200px; display: inline-block;">
+                                <option value="">Bulk Actions</option>
+                                <option value="publish">Publish</option>
+                                <option value="draft">Draft</option>
+                                <option value="delete">Delete</option>
+                            </select>
+                            <button type="submit" name="apply_bulk_action" class="btn btn-primary">Apply</button>
+                      </div>
                 </form>
-              </div>
+                </div>
+<?php
+} // Fin du else (vue liste)
+?>
         </div>
     </section>
 <script>
