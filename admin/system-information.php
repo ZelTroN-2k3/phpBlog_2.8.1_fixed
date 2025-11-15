@@ -8,8 +8,8 @@ if ($user['role'] != "Admin") {
     exit;
 }
 
-// Variable de version (comme dans dashboard.php)
-$phpblog_version = "2.9.4"; 
+// Variable de version (comme dans config.php)
+// $phpblog_version = "2.9.4"; 
 
 // ------------------------------------------------------------
 // --- LOGIQUE POUR LES INFORMATIONS SYSTÈME ---

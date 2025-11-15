@@ -1,6 +1,13 @@
 <?php
 include "header.php";
 
+// Variable de version (comme dans config.php)
+// $phpblog_version = "2.9.4"; 
+
+// ------------------------------------------------------------
+// --- LOGIQUE DE LA PAGE DASHBOARD ---
+// ------------------------------------------------------------
+
 // --- LOGIQUE DE MODÉRATION RAPIDE (COMMENTAIRES) ---
 if ($user['role'] == "Admin") {
     
@@ -34,7 +41,10 @@ if ($user['role'] == "Admin") {
     // --- FIN LOGIQUE DE MODÉRATION RAPIDE (COMMENTAIRES) ---
 }
 
+// ------------------------------------------------------------
 // --- LOGIQUE : MODÉRATION RAPIDE (ARTICLES) ---
+// ------------------------------------------------------------
+
 if ($user['role'] == "Admin") {   
     // Gérer l'approbation d'un article
     if (isset($_GET['approve-post'])) {
@@ -91,7 +101,9 @@ if ($user['role'] == "Admin") {
     // --- FIN LOGIQUE : MODÉRATION RAPIDE (ARTICLES) ---
 }
 
+// ------------------------------------------------------------
 // --- LOGIQUE : MODÉRATION RAPIDE (TÉMOIGNAGES) ---
+// ------------------------------------------------------------
 if ($user['role'] == "Admin") {
     
     // Gérer l'approbation
@@ -128,9 +140,6 @@ if ($user['role'] == "Admin") {
 // --- FIN DE LA LOGIQUE ---
 // -----------------------------------
 
-
-// Variable de version (comme dans core.php)
-$phpblog_version = "2.9.4"; 
 
 // ------------------------------------------------------------
 // --- REQUÊTES POUR LES STATISTIQUES EXPLOITABLES ---
