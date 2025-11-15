@@ -367,6 +367,12 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                         </a>
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
+                                <a href="system-information.php" class="nav-link <?php if ($current_page == 'system-information.php') echo 'active'; ?>">
+                                    <i class="nav-icon fas fa-server"></i>
+                                    <p>System Information</p>
+                                </a>
+                            </li>                            
+                            <li class="nav-item">
                                 <a href="settings.php" class="nav-link <?php if ($current_page == 'settings.php') echo 'active'; ?>">
                                     <i class="nav-icon fas fa-cogs"></i>
                                     <p>Site Settings</p>
