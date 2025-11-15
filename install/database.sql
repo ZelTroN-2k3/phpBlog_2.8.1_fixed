@@ -345,12 +345,27 @@ CREATE TABLE IF NOT EXISTS `user_favorites` (
 --
 -- Structure de la table `widgets`
 --
-CREATE TABLE IF NOT EXISTS `widgets` (
+/*CREATE TABLE IF NOT EXISTS `widgets` (
   `id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
   `content` mediumtext NOT NULL,
   `position` varchar(10) NOT NULL DEFAULT 'Sidebar',
   `active` varchar(3) NOT NULL DEFAULT 'Yes'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;*/
+
+--
+-- Structure de la table `widgets`
+--
+DROP TABLE IF EXISTS `widgets`;
+CREATE TABLE IF NOT EXISTS `widgets` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `widget_type` varchar(50) NOT NULL DEFAULT 'html',
+  `content` mediumtext NULL,
+  `config_data` text DEFAULT NULL,
+  `position` varchar(10) NOT NULL DEFAULT 'Sidebar',
+  `active` varchar(3) NOT NULL DEFAULT 'Yes',
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
