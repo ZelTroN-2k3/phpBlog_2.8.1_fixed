@@ -9,9 +9,9 @@ a:visited {
 .scroll-btn {
 	height: 40px;
 	width: 40px;
-	border: 2px solid #000;
+	border: 2px solid #0052cc;
 	border-radius: 10%;
-	background-color: #000;
+	background-color: #0066ff;
 	position: fixed;
 	bottom: 25px;
 	right: 20px;
@@ -57,4 +57,23 @@ a:visited {
 .theme-switcher i {
     font-size: 1rem;
     vertical-align: middle;
+}
+
+/* ===================================
+   Correction Popup Image
+====================================== */
+/* * Force toutes les images à l'intérieur d'un modal
+ * à prendre 100% de la largeur et à s'adapter en hauteur,
+ * peu importe leur style en ligne (ex: style="width: 25%;")
+*/
+.modal-body img {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100%;
+}
+/*
+ * Cache complètement la barre de titre et le bouton 'X'.
+*/
+.modal-header {
+    display: none;
 }
