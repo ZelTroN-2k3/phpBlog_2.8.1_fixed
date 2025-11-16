@@ -2,10 +2,15 @@
 // Inclure l'autoloader de Composer
 require_once __DIR__ . '/vendor/autoload.php';
 
-// phpBlog version
-$phpblog_version = "2.8.1";
+// --- Variable de version ---
+// $phpblog_version = "x.x.x"; // Définie dans config.php
 
+// ------------------------------------------------------------
 // --- MODIFICATION : Correction du chemin ---
+// ------------------------------------------------------------
+
+// Rediriger vers l'installation si le fichier de configuration est manquant
+// Vérifier si le fichier de configuration existe
 $configfile = __DIR__ . '/config.php'; // Utilise le chemin absolu du dossier de core.php
 if (!file_exists($configfile)) {
     // MODIFICATION : Correction de l'URL de redirection (ajout de ../)
@@ -22,16 +27,19 @@ if (!file_exists($configfile)) {
 
 session_start();
 
-// --- NOUVEL AJOUT : Protection CSRF ---
+// ------------------------------------------------------------
+// --- Protection CSRF ---
+// ------------------------------------------------------------
+
 // Générer un jeton CSRF unique s'il n'existe pas déjà dans la session
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-// --- FIN AJOUT ---
+// --- FIN Protection CSRF ---
 
 include "config.php";
 
-// --- NOUVEAU : Charger les paramètres depuis la BDD (structure à 1 ligne) ---
+// --- Charger les paramètres depuis la BDD (structure à 1 ligne) ---
 $settings = array(); // Initialiser le tableau
 $stmt_settings = mysqli_prepare($connect, "SELECT * FROM settings WHERE id = 1");
 
@@ -61,7 +69,11 @@ if ($stmt_settings) { // Vérifier si la préparation a réussi
 }
 // --- FIN DE LA MODIFICATION ---
 
-// --- NOUVEAU : VÉRIFICATION DU MODE MAINTENANCE ---
+
+// ------------------------------------------------------------
+// --- VÉRIFICATION DU MODE MAINTENANCE ---
+// ------------------------------------------------------------
+
 if ($settings['maintenance_mode'] == 'On') {
 
     // 1. Vérifier si l'utilisateur est un admin
@@ -124,7 +136,11 @@ if ($settings['maintenance_mode'] == 'On') {
 }
 // --- FIN VÉRIFICATION MAINTENANCE ---
 
+
+// ------------------------------------------------------------
 // --- MODIFICATION MODE SOMBRE (DÉFINITION GLOBALE) ---
+// ------------------------------------------------------------
+
 // Définir les variables de thème ici pour les rendre globales
 $light_theme_name = $settings['theme'];
 $dark_theme_name = "Darkly"; // Vous pouvez changer ceci pour "Slate" ou "Superhero" si vous préférez
@@ -243,7 +259,9 @@ function emoticons($text)
         ':poop:' => '💩',
         ':|]' => '🤖'
     );
-    return $text;
+    // --- CORRECTION ---
+    // On remplace les codes (clés) par les emojis (valeurs)
+    return str_replace(array_keys($icons), array_values($icons), $text);    
 }
 
 function generateSeoURL($string, $random_numbers = 1, $wordLimit = 8) { 
@@ -296,15 +314,35 @@ function get_purifier() {
         $config = HTMLPurifier_Config::createDefault();
         $config->set('Cache.SerializerPath', __DIR__ . '/cache');
         
-        // --- NOS 3 MODIFICATIONS ---
+        // --- MODIFICATIONS POUR IFRAME (YouTube/Vimeo) ---
         
-        // 1. Autoriser l'attribut 'style' sur les images
-        $config->set('HTML.Allowed', 'p,b,i,u,s,a[href|title],ul,ol,li,br,img[src|alt|title|width|height|style],span[style],blockquote,pre,h1,h2,h3,h4,h5,h6,table,thead,tbody,tr,th,td');
+        // 1. Activer le module SafeIframe (gère src, width, height, etc.)
+        $config->set('HTML.SafeIframe', true);
         
-        // 2. Autoriser les images 'data:' (pour que l'image s'affiche)
-        $config->set('URI.AllowedSchemes', array('http' => true, 'https' => true, 'mailto' => true, 'ftp' => true, 'data' => true));
+        // 2. Définir la "liste blanche" des URL de confiance
+        // Ceci autorise :
+        // - http(s)://www.youtube.com/embed/
+        // - http(s)://www.youtube-nocookie.com/embed/
+        // - http(s)://player.vimeo.com/video/
+        $config->set('URI.SafeIframeRegexp', '%^(https?:)?//(www\.youtube(?:-nocookie)?\.com/embed/|player\.vimeo\.com/video/)%');
         
-        // 3. Autoriser 'width' et 'height' dans l'attribut style (pour que la taille soit respectée)
+        // 3. Mettre à jour la liste des éléments autorisés
+        // On ajoute 'iframe' et tous ses attributs nécessaires
+        $config->set('HTML.Allowed', 
+            'p,b,i,u,s,a[href|title],ul,ol,li,br,img[src|alt|title|width|height|style],span[style],blockquote,pre,h1,h2,h3,h4,h5,h6,table,thead,tbody,tr,th,td' .
+            ',iframe[src|width|height|frameborder|allow|allowfullscreen|title|referrerpolicy]' // <-- AJOUT ICI
+        );
+        
+        // 4. Autoriser les images 'data:' (votre modification existante)
+        $config->set('URI.AllowedSchemes', array(
+            'http' => true, 
+            'https' => true, 
+            'mailto' => true, 
+            'ftp' => true, 
+            'data' => true
+        ));
+        
+        // 5. Autoriser les propriétés CSS (votre modification existante)
         $config->set('CSS.AllowedProperties', 'width,height,text-decoration,color,background-color,font-weight,font-style,text-align');
         
         // --- FIN DES MODIFICATIONS ---
@@ -772,6 +810,329 @@ function get_reading_time($content, $wpm = 200) {
     return '<i class="far fa-clock"></i> Read: ' . $minutes . ' min';
 }
 
+/**
+ * Affiche un widget en fonction de son type.
+ *
+ * @param array $widget_row La ligne de la base de données pour le widget.
+ */
+function render_widget($widget_row) {
+    // MODIFICATION : Rendre $quiz_id (défini dans quiz.php) accessible
+    global $connect, $settings, $purifier, $quiz_id;
+
+    // S'assurer que le purificateur est initialisé
+    if (!isset($purifier)) {
+        $purifier = get_purifier();
+    }
+    
+    // --- NOUVELLE LOGIQUE D'AFFICHAGE ---
+    $position = $widget_row['position'];
+    $type = $widget_row['widget_type'];
+
+    // Cas 1: Le widget est dans la Sidebar
+    if ($position == 'Sidebar') {
+        echo '
+            <div class="card mt-3">
+                  <div class="card-header">' . htmlspecialchars($widget_row['title']) . '</div>
+                  <div class="card-body">';
+    
+    // Cas 2: Le widget est en Header ou Footer
+    } else { 
+        // Si c'est un 'latest_posts' ou 'html', on n'affiche pas de 'card' par défaut,
+        // mais on affiche un titre pour 'latest_posts'.
+        if ($type == 'latest_posts') {
+             echo '<h5 class="mt-3">' . htmlspecialchars($widget_row['title']) . '</h5>';
+        } elseif ($type != 'html') {
+            // Les autres types (comme 'search') peuvent garder leur card
+             echo '
+                <div class="card mt-3">
+                      <div class="card-header">' . htmlspecialchars($widget_row['title']) . '</div>
+                      <div class="card-body">';
+        }
+    }
+    // --- FIN NOUVELLE LOGIQUE ---
+    
+
+    // --- Le Cerveau du système : un SWITCH ---
+    switch ($type) {
+
+        // CAS 1 : 'html'
+        case 'html':
+        default:
+            echo $purifier->purify($widget_row['content']);
+            break;
+
+        // CAS 2 : 'latest_posts' (VERSION AMÉLIORÉE)
+        case 'latest_posts':
+            // 1. Lire la configuration JSON
+            $config = json_decode($widget_row['config_data'], true);
+            $limit = isset($config['count']) ? (int)$config['count'] : 4; // Défaut à 4
+            
+            // 2. Exécuter une requête plus complète
+            $q_posts = mysqli_query($connect, "
+                SELECT id, title, slug, image, created_at 
+                FROM posts 
+                WHERE active='Yes' AND publish_at <= NOW() 
+                ORDER BY id DESC 
+                LIMIT $limit
+            ");
+
+            if (mysqli_num_rows($q_posts) == 0) {
+                echo '<p>Aucun article à afficher.</p>';
+            } else {
+                
+                // --- AFFICHAGE SELON LA POSITION ---
+                if ($position == 'Sidebar') {
+                    // --- AFFICHAGE SIDEBAR (Vertical, style "Popular Posts") ---
+                    while ($post = mysqli_fetch_assoc($q_posts)) {
+                        // Logique d'image (copiée de votre sidebar() originale)
+                        $image = "";
+                        if($post['image'] != "") {
+                            $image = '<img class="rounded shadow-1-strong me-1"
+                                    src="' . htmlspecialchars($post['image']) . '" alt="' . htmlspecialchars($post['title']) . '" width="70"
+                                    height="70" style="object-fit: cover;" />';
+                        } else {
+                            $image = '<svg class="bd-placeholder-img rounded shadow-1-strong me-1" width="70" height="70" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="No Image" preserveAspectRatio="xMidYMid slice" focusable="false">
+                            <title>Image</title><rect width="70" height="70" fill="#55595c"/>
+                            <text x="15%" y="50%" fill="#eceeef" dy=".1em">No Image</text></svg>';
+                        }
+                        
+                        echo '       
+                            <div class="mb-2 d-flex flex-start align-items-center bg-light rounded">
+                                <a href="post?name=' . htmlspecialchars($post['slug']) . '" class="ms-1">
+                                    ' . $image . '
+                                </a>
+                                <div class="mt-2 mb-2 ms-1 me-1" style="min-width: 0;"> <h6 class="text-primary mb-1 text-truncate"> <a href="post?name=' . htmlspecialchars($post['slug']) . '">' . htmlspecialchars($post['title']) . '</a>
+                                    </h6>
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-calendar"></i> ' . date($settings['date_format'], strtotime($post['created_at'])) . '<br />
+                                        <i class="fa fa-comments"></i> Comments: 
+                                            <a href="post?name=' . htmlspecialchars($post['slug']) . '#comments">
+                                                <b>' . post_commentscount($post['id']) . '</b>
+                                            </a>
+                                    </p>
+                                </div>
+                            </div>';
+                    }
+                } else {
+                    // --- AFFICHAGE HEADER/FOOTER (Horizontal, en grille) ---
+                    
+                    // Déterminer la classe de colonne (basé sur 12)
+                    $col_class = 'col-md-3'; // 4 articles
+                    if ($limit == 3) $col_class = 'col-md-4';
+                    if ($limit == 2) $col_class = 'col-md-6';
+                    if ($limit == 1) $col_class = 'col-md-12';
+                    if ($limit > 4) $col_class = 'col-md-3'; // Max 4 par ligne
+                    
+                    echo '<div class="row">'; // Ouvre la grille Bootstrap
+                    
+                    while ($post = mysqli_fetch_assoc($q_posts)) {
+                        // Logique d'image (copiée de votre index.php)
+                        $image = "";
+                        if($post['image'] != "") {
+                            $image = '<img src="' . htmlspecialchars($post['image']) . '" alt="' . htmlspecialchars($post['title']) . '" class="card-img-top" width="100%" height="150" style="object-fit: cover;"/>';
+                        } else {
+                            $image = '<svg class="bd-placeholder-img card-img-top" width="100%" height="150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail" preserveAspectRatio="xMidYMid slice" focusable="false">
+                            <title>No Image</title><rect width="100%" height="100%" fill="#55595c"/>
+                            <text x="40%" y="50%" fill="#eceeef" dy=".3em">No Image</text></svg>';
+                        }
+                        
+                        echo '
+                            <div class="' . $col_class . ' mb-3"> 
+                                <div class="card shadow-sm h-100 d-flex flex-column">
+                                    <a href="post?name=' . htmlspecialchars($post['slug']) . '">
+                                        '. $image .'
+                                    </a>
+                                    <div class="card-body d-flex flex-column flex-grow-1 p-3">
+                                        <a href="post?name=' . htmlspecialchars($post['slug']) . '" class="text-decoration-none"><h6 class="card-title text-primary small">' . htmlspecialchars(short_text($post['title'], 50)) . '</h6></a>
+                                        <small class="text-muted d-block mt-auto"> <i class="far fa-calendar-alt"></i> ' . date($settings['date_format'], strtotime($post['created_at'])) . '
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>';
+                    }
+                    echo '</div>'; // Ferme la grille Bootstrap
+                }
+            }
+            break;
+        
+        // CAS 3 : 'search'
+        case 'search':
+            echo '
+            <form action="search.php" method="GET">
+                <div class="input-group">
+                    <input type="search" class="form-control" placeholder="Rechercher..." name="q" required />
+                    <button class="btn btn-primary" type="submit" aria-label="Rechercher"><i class="fa fa-search"></i></button>
+                </div>
+            </form>';
+        break; // Fin du case 'search'
+
+// --- BLOC WIDGET LEADERBOARD MIS À JOUR ---
+        case 'quiz_leaderboard':
+            
+            // SCÉNARIO A : Nous sommes sur une page de quiz (quiz.php?id=X)
+            // $quiz_id est défini globalement dans quiz.php
+            if (isset($quiz_id) && $quiz_id > 0) {
+                
+                // === Logique pour LEADERBOARD SPÉCIFIQUE (style capture d'écran) ===
+                
+                // 1. Moyenne globale pour CE quiz
+                $stmt_avg = mysqli_prepare($connect, "SELECT AVG(score) AS avg_score, COUNT(DISTINCT user_id) AS total_players FROM quiz_attempts WHERE quiz_id = ?");
+                mysqli_stmt_bind_param($stmt_avg, "i", $quiz_id);
+                mysqli_stmt_execute($stmt_avg);
+                $res_avg = mysqli_stmt_get_result($stmt_avg);
+                $global_stats = mysqli_fetch_assoc($res_avg);
+                mysqli_stmt_close($stmt_avg);
+
+                // 2. Joueurs ce mois-ci pour CE quiz
+                $stmt_month = mysqli_prepare($connect, "SELECT COUNT(id) AS monthly_count FROM quiz_attempts WHERE quiz_id = ? AND attempt_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH)");
+                mysqli_stmt_bind_param($stmt_month, "i", $quiz_id);
+                mysqli_stmt_execute($stmt_month);
+                $res_month = mysqli_stmt_get_result($stmt_month);
+                $monthly_plays = mysqli_fetch_assoc($res_month)['monthly_count'];
+                mysqli_stmt_close($stmt_month);
+
+                // 3. Leaderboard (Top 9) pour CE quiz
+                $leaderboard = [];
+                $stmt_lead = mysqli_prepare($connect, "
+                    SELECT u.username, t1.score, t1.time_seconds
+                    FROM quiz_attempts t1
+                    JOIN users u ON t1.user_id = u.id
+                    WHERE t1.quiz_id = ?
+                    AND t1.id = (
+                        SELECT id
+                        FROM quiz_attempts t2
+                        WHERE t2.quiz_id = t1.quiz_id AND t2.user_id = t1.user_id
+                        ORDER BY t2.score DESC, t2.time_seconds ASC, t2.id DESC
+                        LIMIT 1
+                    )
+                    ORDER BY t1.score DESC, t1.time_seconds ASC
+                    LIMIT 9
+                ");
+                mysqli_stmt_bind_param($stmt_lead, "i", $quiz_id);
+                mysqli_stmt_execute($stmt_lead);
+                $res_lead = mysqli_stmt_get_result($stmt_lead);
+                while($row = mysqli_fetch_assoc($res_lead)) {
+                    $leaderboard[] = $row;
+                }
+                mysqli_stmt_close($stmt_lead);
+                
+                // Affichage HTML (style de la capture d'écran)
+                echo '
+                <div style="font-size: 0.9em; line-height: 1.6;">
+                    <p class="mb-1">
+                        Moyenne sur <strong>' . (int)$global_stats['total_players'] . '</strong> joueurs : <strong>' . round((float)$global_stats['avg_score'], 1) . '%</strong>
+                    </p>
+                    <p class="mb-2">
+                        <strong>' . (int)$monthly_plays . '</strong> tentatives ce mois-ci.
+                    </p>';
+                
+                if (empty($leaderboard)) {
+                    echo '<small class="text-muted">Personne n\'a encore joué à ce quiz !</small>';
+                } else {
+                    echo '<ol class="list-unstyled mb-0">';
+                    $rank = 1;
+                    foreach ($leaderboard as $player) {
+                        echo '<li class="text-truncate">
+                                <span class="fw-bold">' . $rank++ . '. ' . htmlspecialchars($player['username']) . '</span> ' . 
+                                $player['score'] . '% (' . $player['time_seconds'] . 's)
+                              </li>';
+                    }
+                    echo '</ol>';
+                }
+                echo '</div>';
+
+
+            } else {
+                
+                // === Logique pour HALL OF FAME GLOBAL (comportement par défaut) ===
+                // SCÉNARIO B : Nous sommes sur n'importe quelle autre page (accueil, blog, etc.)
+                
+                // --- REQUÊTE SQL MISE À JOUR ---
+                $stmt_global = mysqli_prepare($connect, "
+                    SELECT
+                        u.username,
+                        u.avatar,
+                        AVG(a.score) AS avg_score,
+                        COUNT(DISTINCT a.quiz_id) AS quizzes_played,
+                        (
+                            SELECT q.image 
+                            FROM quizzes q
+                            JOIN quiz_attempts qa ON q.id = qa.quiz_id
+                            WHERE qa.user_id = u.id
+                            ORDER BY qa.attempt_date DESC
+                            LIMIT 1
+                        ) AS last_quiz_image
+                    FROM quiz_attempts a
+                    JOIN users u ON a.user_id = u.id
+                    GROUP BY u.id, u.username, u.avatar
+                    ORDER BY
+                        avg_score DESC,
+                        quizzes_played DESC
+                    LIMIT 10
+                ");
+                // --- FIN DE LA REQUÊTE ---
+                
+                mysqli_stmt_execute($stmt_global);
+                $result_global = mysqli_stmt_get_result($stmt_global);
+
+                if (mysqli_num_rows($result_global) == 0) {
+                    echo '<p class="text-muted small">Aucun joueur n\'a encore terminé de quiz.</p>';
+                } else {
+                    echo '<ol class="list-unstyled mb-0">';
+                    $rank = 1;
+                    
+                    // --- BOUCLE WHILE MISE À JOUR ---
+                    while ($player = mysqli_fetch_assoc($result_global)) {
+                        
+                        // Logique pour l'image du dernier quiz
+                        $last_quiz_img_html = '';
+                        if (!empty($player['last_quiz_image'])) {
+                            $img_src = htmlspecialchars($player['last_quiz_image']);
+                            $last_quiz_img_html = '<img src="' . $img_src . '" alt="Last Quiz" class="rounded" width="60" height="45" style="object-fit: cover;">';
+                        } else {
+                            // Placeholder si pas d'image
+                            $last_quiz_img_html = '<span class="rounded bg-light d-inline-block d-flex align-items-center justify-content-center" style="width: 60px; height: 45px;">
+                                                    <i class="fas fa-image text-muted" style="font-size: 0.8em;"></i>
+                                                  </span>';
+                        }
+
+                        echo '
+                        <li class="d-flex align-items-center mb-2 pb-2 border-bottom">
+                            <span class="fw-bold me-2" style="width: 20px;">' . $rank++ . '.</span>
+                            <img src="' . htmlspecialchars($player['avatar']) . '" alt="' . htmlspecialchars($player['username']) . '" class="rounded-circle me-2" width="30" height="30" style="object-fit: cover;">
+                            
+                            <div class="flex-grow-1 me-2">
+                                <span class="fw-bold d-block" style="font-size: 0.9em;">' . htmlspecialchars($player['username']) . '
+                                <small class="text-muted"> (' . (int)$player['quizzes_played'] . ' quiz)</small>
+                                </span>
+                                <small class="text-muted">Score moyen: <span class="badge bg-primary">' . round($player['avg_score']) . '%</span>
+                                </small>
+                            </div>
+
+                            ' . $last_quiz_img_html . '
+                        </li>';
+                    }
+                    // --- FIN DE LA BOUCLE ---
+                    
+                    echo '</ol>';
+                }
+                mysqli_stmt_close($stmt_global);
+            }
+            break;
+        // --- FIN DU BLOC MIS À JOUR ---
+            
+    } // L'accolade "switch" se trouve ici
+    
+    // --- FERMETURE DES CONTENEURS ---
+    if ($position == 'Sidebar' || ($position != 'Sidebar' && $type != 'latest_posts' && $type != 'html')) {
+         echo '
+              </div>
+        </div>
+        ';
+    }
+    // --- FIN FERMETURE ---
+}
+
 // --- DÉBUT DE LA NOUVELLE FONCTION ---
 
 /**
@@ -1207,6 +1568,34 @@ if($settings['background_image'] != "") {
     }';
 }
 ?>
+/* --- CSS MEGA MENU RESPONSIVE --- */
+
+/* 1. Par défaut (Mobile) : Le menu prend 100% de la largeur et s'empile */
+.mega-menu-custom {
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    margin-top: 0;
+    padding: 0;
+}
+
+/* 2. Sur PC (Écrans > 992px) : On applique le style "Mega Menu Centré" */
+@media (min-width: 992px) {
+    .nav-item.dropdown {
+        position: relative; /* Le parent redevient la référence */
+    }
+    
+    .mega-menu-custom {
+        position: absolute;
+        min-width: 900px; /* Largeur fixe pour PC */
+        left: 50%;
+        transform: translateX(-30%); /* Centrage parfait */
+        border-top: 3px solid #007bff;
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); /* Ombre uniquement sur PC */
+        border-radius: 0.25rem;
+        padding: 1rem 0;
+    }
+}
         </style>
         
 <?php
@@ -1472,10 +1861,117 @@ if ($settings['layout'] == 'Wide') {
 						</a>
 					</li>';
         }
+    // ... fin de la boucle des menus standards ...
     }
 ?>
-				</ul>
+<?php
+    // --- AFFICHAGE DES MEGA MENUS DYNAMIQUES (Table 'mega_menus') ---
+    $mm_query = mysqli_query($connect, "SELECT * FROM mega_menus WHERE active='Yes' ORDER BY position_order ASC");
+    
+    while ($mm = mysqli_fetch_assoc($mm_query)) {
+        
+        // 1. Vérifier la visibilité des colonnes
+        $show_col_2 = ($mm['col_2_type'] != 'none');
+        $show_col_3 = ($mm['col_3_type'] != 'none');
+
+        // 2. Calculer la largeur idéale du menu (PC uniquement)
+        // Par défaut 900px. On réduit si on cache des colonnes.
+        $custom_width = '900px'; 
+        if (!$show_col_2 && !$show_col_3) {
+            $custom_width = '250px'; // Une seule colonne (Explore)
+        } elseif (!$show_col_2 || !$show_col_3) {
+            $custom_width = '600px'; // Deux colonnes
+        }
+
+        echo '<li class="nav-item dropdown">
+                <a href="' . htmlspecialchars($mm['trigger_link']) . '" class="nav-link dropdown-toggle px-2" data-bs-toggle="dropdown">
+                    <i class="fa ' . htmlspecialchars($mm['trigger_icon']) . '"></i> ' . htmlspecialchars($mm['trigger_text']) . ' 
+                </a>
                 
+                <div class="dropdown-menu mega-menu-custom bg-white" style="min-width: ' . $custom_width . ';">
+                    <div class="px-4 py-3">
+                        <div class="row g-4">
+                            
+                            <div class="col-12 col-lg-2 border-end-lg">
+                                <h6 class="text-uppercase fw-bold text-primary mb-3 pt-2" style="font-size: 0.85rem;">
+                                    ' . htmlspecialchars($mm['col_1_title']) . '
+                                </h6>
+                                <div class="text-small">
+                                    ' . $mm['col_1_content'] . ' 
+                                </div>
+                            </div>';
+
+                            // --- COLONNE 2 (Conditionnelle) ---
+                            if ($show_col_2) {
+                                echo '<div class="col-12 col-lg-4 border-end-lg">
+                                        <h6 class="text-uppercase fw-bold text-secondary mb-3 pt-2" style="font-size: 0.85rem;">
+                                            ' . htmlspecialchars($mm['col_2_title']) . '
+                                        </h6>
+                                        <div class="row">';
+                                
+                                if ($mm['col_2_type'] == 'categories') {
+                                    $run_cats = mysqli_query($connect, "SELECT * FROM `categories` ORDER BY category ASC");
+                                    while ($rc = mysqli_fetch_assoc($run_cats)) {
+                                        echo '<div class="col-6 mb-1">
+                                                <a class="dropdown-item rounded px-2 py-1 small text-truncate" href="category?name=' . htmlspecialchars($rc['slug']) . '">
+                                                    <i class="fas fa-angle-right text-muted me-1"></i> ' . htmlspecialchars($rc['category']) . '
+                                                </a>
+                                              </div>';
+                                    }
+                                } elseif ($mm['col_2_type'] == 'custom') {
+                                    echo '<div class="col-12">' . $mm['col_2_content'] . '</div>';
+                                }
+                                
+                                echo '  </div>
+                                    </div>';
+                            }
+
+                            // --- COLONNE 3 (Conditionnelle) ---
+                            if ($show_col_3) {
+                                echo '<div class="col-12 col-lg-6">
+                                        <h6 class="text-uppercase fw-bold text-success mb-3 pt-2" style="font-size: 0.85rem;">
+                                            ' . htmlspecialchars($mm['col_3_title']) . '
+                                        </h6>
+                                        <div class="row g-3">';
+                                
+                                if ($mm['col_3_type'] == 'latest_posts') {
+                                    $recent_q = mysqli_query($connect, "SELECT title, slug, image, created_at FROM posts WHERE active='Yes' AND publish_at <= NOW() ORDER BY id DESC LIMIT 4");
+                                    if(mysqli_num_rows($recent_q) > 0){
+                                        while($post = mysqli_fetch_assoc($recent_q)){
+                                            $img_src = $post['image'] != '' ? htmlspecialchars($post['image']) : 'assets/img/no-image.png';
+                                            if($post['image'] == '') {
+                                                 $img_display = '<div class="bg-light d-flex align-items-center justify-content-center text-muted small" style="height: 60px; width: 80px; border-radius: 4px;"><i class="fas fa-image"></i></div>';
+                                            } else {
+                                                 $img_display = '<img src="' . $img_src . '" class="img-fluid rounded" style="height: 60px; width: 80px; object-fit: cover;" alt="Post">';
+                                            }
+                                            echo '
+                                            <div class="col-12 col-md-6">
+                                                <a href="post?name=' . htmlspecialchars($post['slug']) . '" class="text-decoration-none link-dark d-flex align-items-center p-1 rounded hover-bg-light">
+                                                    <div class="flex-shrink-0 me-2">' . $img_display . '</div>
+                                                    <div class="flex-grow-1" style="min-width: 0;">
+                                                        <h6 class="mb-0 small fw-bold text-truncate" style="line-height: 1.4;">' . htmlspecialchars($post['title']) . '</h6>
+                                                        <small class="text-muted" style="font-size: 0.75rem;">' . date('M d, Y', strtotime($post['created_at'])) . '</small>
+                                                    </div>
+                                                </a>
+                                            </div>';
+                                        }
+                                    } else { echo '<div class="col-12 text-muted">No posts.</div>'; }
+                                } elseif ($mm['col_3_type'] == 'custom') {
+                                    echo '<div class="col-12">' . $mm['col_3_content'] . '</div>';
+                                }
+
+                                echo '  </div>
+                                    </div>';
+                            }
+
+        echo '          </div> </div>
+                </div>
+              </li>';
+    }
+?>  
+				</ul>
+
+           
                 <ul class="navbar-nav ms-auto d-flex flex-row align-items-center">
                     <li class="nav-item me-2">
                         <button class="btn btn-link nav-link theme-switcher" id="theme-switcher-btn" type="button" aria-label="Toggle theme">
@@ -1527,6 +2023,15 @@ if ($current_page == 'submit_post.php') {
                                     <i class="fas fa-pen-square"></i> Submit an article
 								</a>
 							</li>
+                            <li>
+                                <a class="dropdown-item <?php 
+if ($current_page == 'submit_testimonial.php'){ 
+	echo ' active';
+}
+?>" href="submit_testimonial.php"> 
+                                    <i class="fas fa-star"></i> Add Testimonial
+                                </a>
+                            </li>                            
 							<li>
 								<a class="dropdown-item <?php
 if ($current_page == 'my-favorites.php') { 
@@ -1613,21 +2118,14 @@ if ($settings['layout'] == 'Wide') {
 ?> mt-3">
 	
 <?php
-// Requête simple sans variable externe
+// --- ✨✨ MODIFICATION ICI ✨✨ ---
+// Requête pour les widgets de type "header"
 $run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'header' AND active = 'Yes' ORDER BY id ASC");
 while ($row = mysqli_fetch_assoc($run)) {
-    // Initialiser HTML Purifier via la nouvelle fonction
-    $purifier = get_purifier();
-
-    echo '
-		<div class="card mb-3">
-			<div class="card-header">' . htmlspecialchars($row['title']) . '</div>
-			<div class="card-body">
-				' . $purifier->purify($row['content']) . '
-			</div>
-		</div>
-	';
+    // Appelle la nouvelle fonction d'affichage
+    render_widget($row);
 }
+// --- ✨✨ FIN DE LA MODIFICATION ✨✨ ---
 ?>
 	
         <div class="row">
@@ -1640,8 +2138,152 @@ function sidebar() {
 ?>
 			<div id="sidebar" class="col-md-4">
 
-				<div class="card">
-					<div class="card-header"><i class="fas fa-list"></i> Categories</div>
+<?php
+    // --- WIDGET SONDAGE (POLL) ---
+    // (Votre code original pour les SONDAGES reste ici, inchangé)
+    $poll_q = mysqli_query($connect, "SELECT * FROM polls WHERE active='Yes' ORDER BY id DESC LIMIT 1");
+    
+    if (mysqli_num_rows($poll_q) > 0) {
+        $poll = mysqli_fetch_assoc($poll_q);
+        $poll_id = $poll['id'];
+        
+        // Vérifier si l'utilisateur a déjà voté (Cookie ou IP)
+        $user_ip = $_SERVER['REMOTE_ADDR'];
+        $has_voted = false;
+        if (isset($_COOKIE['poll_voted_' . $poll_id])) {
+            $has_voted = true;
+        } else {
+            // Requête préparée pour la vérification des votes
+            $stmt_check_vote = mysqli_prepare($connect, "SELECT id FROM poll_voters WHERE poll_id=? AND ip_address=?");
+            mysqli_stmt_bind_param($stmt_check_vote, "is", $poll_id, $user_ip);
+            mysqli_stmt_execute($stmt_check_vote);
+            $result_check_vote = mysqli_stmt_get_result($stmt_check_vote);
+            if (mysqli_num_rows($result_check_vote) > 0) {
+                $has_voted = true;
+            }
+            mysqli_stmt_close($stmt_check_vote);
+        }
+?>
+    <div class="card mb-3">
+        <div class="card-header">
+            <i class="fas fa-poll-h"></i> Poll of the week
+        </div>
+        <div class="card-body" id="poll-container-<?php echo $poll_id; ?>">
+            <h6 class="card-title fw-bold mb-3"><?php echo htmlspecialchars($poll['question']); ?></h6>
+            
+            <?php if (!$has_voted): ?>
+                <form id="poll-form-<?php echo $poll_id; ?>">
+                    <input type="hidden" name="poll_id" value="<?php echo $poll_id; ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    
+                    <div class="poll-options mb-3">
+                        <?php
+                        $opts_q = mysqli_query($connect, "SELECT * FROM poll_options WHERE poll_id='$poll_id' ORDER BY id ASC");
+                        while ($opt = mysqli_fetch_assoc($opts_q)) {
+                            echo '
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="option_id" id="opt-'.$opt['id'].'" value="'.$opt['id'].'">
+                                <label class="form-check-label" for="opt-'.$opt['id'].'">
+                                    '.htmlspecialchars($opt['title']).'
+                                </label>
+                            </div>';
+                        }
+                        ?>
+                    </div>
+                    <div id="poll-msg-<?php echo $poll_id; ?>" class="text-danger small mb-2"></div>
+                    <button type="button" onclick="submitPoll(<?php echo $poll_id; ?>)" class="btn btn-sm btn-primary w-100">Vote</button>
+                </form>
+            <?php endif; ?>
+
+            <div id="poll-results-<?php echo $poll_id; ?>" style="<?php echo ($has_voted ? '' : 'display:none;'); ?>">
+                <?php
+                // Calcul initial (si déjà voté, on affiche direct)
+                if ($has_voted) {
+                    $total_v = 0;
+                    $res_data = [];
+                    $res_q = mysqli_query($connect, "SELECT * FROM poll_options WHERE poll_id='$poll_id'");
+                    while($r = mysqli_fetch_assoc($res_q)) { 
+                        $res_data[] = $r; 
+                        $total_v += $r['votes']; 
+                    }
+                    
+                    foreach ($res_data as $row) {
+                        $percent = ($total_v > 0) ? round(($row['votes'] / $total_v) * 100) : 0;
+                        echo '
+                        <small>'.htmlspecialchars($row['title']).' ('.$percent.'%)</small>
+                        <div class="progress mb-2" style="height: 10px;">
+                            <div class="progress-bar" role="progressbar" style="width: '.$percent.'%;" aria-valuenow="'.$percent.'" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>';
+                    }
+                    echo '<div class="text-center small text-muted mt-2">Total votes: '.$total_v.'</div>';
+                    echo '<div class="alert alert-success py-1 px-2 mt-2 small text-center"><i class="fas fa-check"></i> You have voted!</div>';
+                }
+                ?>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function submitPoll(pollId) {
+        const form = document.getElementById('poll-form-' + pollId);
+        const formData = new FormData(form);
+        const msgDiv = document.getElementById('poll-msg-' + pollId);
+        
+        // Validation simple côté client
+        if(!formData.get('option_id')) {
+            msgDiv.innerText = "Please select an option.";
+            return;
+        }
+        msgDiv.innerText = "Sending...";
+
+        fetch('ajax_vote_poll.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Cacher le formulaire
+                form.style.display = 'none';
+                
+                // Générer le HTML des résultats
+                let html = '';
+                let total = data.total_votes;
+                
+                data.results.forEach(opt => {
+                    let percent = (total > 0) ? Math.round((opt.votes / total) * 100) : 0;
+                    html += `<small>${opt.title} (${percent}%)</small>
+                             <div class="progress mb-2" style="height: 10px;">
+                                <div class="progress-bar" role="progressbar" style="width: ${percent}%;"></div>
+                             </div>`;
+                });
+                
+                html += `<div class="text-center small text-muted mt-2">Total votes: ${total}</div>`;
+                html += `<div class="alert alert-success py-1 px-2 mt-2 small text-center"><i class="fas fa-check"></i> ${data.message}</div>`;
+                
+                const resDiv = document.getElementById('poll-results-' + pollId);
+                resDiv.innerHTML = html;
+                $(resDiv).fadeIn(); // Effet jQuery doux
+                
+            } else {
+                msgDiv.innerText = data.message;
+            }
+        })
+        .catch(error => {
+            msgDiv.innerText = "Error connecting to server.";
+            console.error(error);
+        });
+    }
+    </script>
+<?php
+    }
+    // --- FIN WIDGET SONDAGE ---
+?>
+
+				<div class="card mb-3">
+					<div class="card-header">
+                        <i class="fas fa-list"></i> Categories
+                    </div>
 					<div class="card-body">
 						<ul class="list-group">
 <?php
@@ -1672,8 +2314,10 @@ function sidebar() {
 					</div>
 				</div>
 				
-				<div class="card mt-3">
-					<div class="card-header"><i class="fas fa-tags"></i> Popular Tags</div>
+				<div class="card mb-3">
+					<div class="card-header">
+                        <i class="fas fa-tags"></i> Popular Tags
+                    </div>
 					<div class="card-body">
 						<div class="d-flex flex-wrap">
 <?php
@@ -1715,12 +2359,12 @@ function sidebar() {
 						<ul class="nav nav-tabs card-header-tabs nav-justified">
 							<li class="nav-item active">
 								<a class="nav-link active" href="#popular" data-bs-toggle="tab">
-									Popular Posts
+									<i class="fas fa-list"></i> Popular Posts
 								</a>
 							</li>
 							<li class="nav-item">
 								<a class="nav-link" href="#commentss" data-bs-toggle="tab">
-									Recent Comments
+									<i class="fas fa-comments"></i> Recent Comments
 								</a>
 							</li>
 						</ul>
@@ -1835,24 +2479,22 @@ function sidebar() {
                     </div>
                 </div>
 				
-				<div class="p-4 mt-3 bg-body-tertiary rounded text-dark">
-					<h6><i class="fas fa-envelope-open-text"></i> Subscribe</h6><hr />
-					
-					<p class="mb-3">Get the latest news and exclusive offers</p>
-					
-					<form action="" method="POST">
-						<div class="input-group">
-							<input type="email" class="form-control" placeholder="E-Mail Address" name="email" required />
-							<span class="input-group-btn">
-								<button class="btn btn-primary" type="submit" name="subscribe">Subscribe</button>
-							</span>
-						</div>
-					</form>
+                <div class="card mt-3">
+					<div class="card-header"><i class="fas fa-envelope-open-text"></i> Subscribe</div>
+					<div class="card-body">
+                        <p class="small mb-3">Get the latest news and exclusive offers.</p>
+                        
+                        <form action="" method="POST">
+                            <div class="input-group">
+                                <input type="email" class="form-control" placeholder="E-Mail Address" name="email" required />
+                                <button class="btn btn-primary" type="submit" name="subscribe">Subscribe</button>
+                            </div>
+                        </form>
 <?php
     if (isset($_POST['subscribe'])) {
-        $email = $_POST['email']; // $_POST est déjà filtré au début du script
+        $email = $_POST['email']; 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            echo '<div class="alert alert-danger">The entered E-Mail Address is invalid</div>';
+            echo '<div class="alert alert-danger mt-2 small p-2">The entered E-Mail Address is invalid</div>';
         } else {
             // Requête préparée pour vérifier l'existence
             $stmt_sub_check = mysqli_prepare($connect, "SELECT email FROM `newsletter` WHERE email=? LIMIT 1");
@@ -1861,88 +2503,138 @@ function sidebar() {
             $result_sub_check = mysqli_stmt_get_result($stmt_sub_check);
             
             if (mysqli_num_rows($result_sub_check) > 0) {
-                echo '<div class="alert alert-warning">This E-Mail Address is already subscribed.</div>';
+                echo '<div class="alert alert-warning mt-2 small p-2">This E-Mail Address is already subscribed.</div>';
             } else {
                 // Requête préparée pour l'insertion
                 $stmt_sub_insert = mysqli_prepare($connect, "INSERT INTO `newsletter` (email) VALUES (?)");
                 mysqli_stmt_bind_param($stmt_sub_insert, "s", $email);
                 mysqli_stmt_execute($stmt_sub_insert);
                 mysqli_stmt_close($stmt_sub_insert);
-                echo '<div class="alert alert-success">You have successfully subscribed to our newsletter.</div>';
+                echo '<div class="alert alert-success mt-2 small p-2">You have successfully subscribed to our newsletter.</div>';
             }
             mysqli_stmt_close($stmt_sub_check);
         }
     }
 ?>
-				</div>
+                    </div>
+                </div>
 
 <?php
-    // Requête simple sans variable externe
-    $run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'sidebar' AND active = 'Yes' ORDER BY id ASC");
-    if (mysqli_num_rows($run) > 0) {
-        $purifier = get_purifier();
-        while ($row = mysqli_fetch_assoc($run)) {
-            echo '	
-    				<div class="card mt-3">
-    					  <div class="card-header">' . htmlspecialchars($row['title']) . '</div>
-    					  <div class="card-body">
-    						' . $purifier->purify($row['content']) . '
-    					  </div>
-    				</div>
-    ';
-        }
-    }
+// Requête pour les widgets de type "sidebar"
+$run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'sidebar' AND active = 'Yes' ORDER BY id ASC");
+while ($row = mysqli_fetch_assoc($run)) {
+    // Appelle la nouvelle fonction d'affichage
+    render_widget($row);
+}
 ?>
 			</div>
 		
 <?php
-}    
+}
+
 function footer()
 {
     // Rendre les variables globales accessibles
-    global $phpblog_version, $connect, $settings, $light_theme_url, $dark_theme_url, $purifier;
-?>
-    		</div> <?php
-    // Boucle pour les Widgets de pied de page (INCHANGÉE)
-    $run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'footer' AND active = 'Yes' ORDER BY id ASC");
-    if (mysqli_num_rows($run) > 0) {
-        if (!isset($purifier)) {
-            // S'assurer que get_purifier() est appelée si $purifier n'existe pas
-            $purifier = get_purifier();
-        }
-        while ($row = mysqli_fetch_assoc($run)) {
-            echo '		
-    				<div class="card mt-3">
-    					<div class="card-header">' . htmlspecialchars($row['title']) . '</div>
-    					<div class="card-body">
-    						' . $purifier->purify($row['content']) . '
-    					</div>
-    			</div>
-    	';
-        }
+    global $phpblog_version, $connect, $settings, $purifier;
+    
+    // --- NOUVEAU BLOC : RÉCUPÉRER LES PAGES DU FOOTER ---
+    
+    // Initialiser un tableau pour stocker nos 5 pages
+    $footer_content = [
+        'legal' => null,
+        'contact_methods' => null,
+        'most_viewed' => null,
+        'cta_buttons' => null,
+        'trust_badges' => null
+    ];
+    
+    // S'assurer que le purificateur est prêt
+    if (!isset($purifier)) {
+        $purifier = get_purifier();
     }
-    ?>
-    	</div>	<footer class="bg-dark text-light pt-5 pb-3 mt-3">
+
+    // Requête pour récupérer les 5 pages actives
+    $stmt_footer = mysqli_prepare($connect, "
+        SELECT page_key, title, content 
+        FROM footer_pages 
+        WHERE active = 'Yes' AND page_key IN ('legal', 'contact_methods', 'most_viewed', 'cta_buttons', 'trust_badges')
+    ");
+    
+    if ($stmt_footer) {
+        mysqli_stmt_execute($stmt_footer);
+        $result_footer = mysqli_stmt_get_result($stmt_footer);
+        
+        while ($page = mysqli_fetch_assoc($result_footer)) {
+            // Remplir notre tableau
+            $footer_content[$page['page_key']] = [
+                'title' => htmlspecialchars($page['title']),
+                'content' => $purifier->purify($page['content']) // Nettoyer le contenu
+            ];
+        }
+        mysqli_stmt_close($stmt_footer);
+    }
+    // --- FIN DU NOUVEAU BLOC ---
+    
+?>
+            </div> <?php
+    // Requête pour les widgets de type "footer" (EXISTANT)
+    $run = mysqli_query($connect, "SELECT * FROM widgets WHERE position = 'footer' AND active = 'Yes' ORDER BY id ASC");
+    while ($row = mysqli_fetch_assoc($run)) {
+        render_widget($row);
+    }
+?>
+    </div>    <footer class="bg-dark text-light pt-5 pb-3 mt-3">
         <div class="<?php echo ($settings['layout'] == 'Wide') ? 'container-fluid' : 'container'; ?>">
             <div class="row gy-4">
 
-                <div class="col-lg-4 col-md-6 mb-4">
+            <div class="col-lg-4 col-md-6 mb-4">
                     <h5 class="text-uppercase fw-bold mb-4">
                         <i class="far fa-newspaper me-2"></i> <?php echo htmlspecialchars($settings['sitename']); ?>
                     </h5>
                     <p class="text-white-50">
                         <?php echo htmlspecialchars($settings['description']); ?>
                     </p>
-                    <p class="text-white-50">
-                        <i class="bi bi-envelope me-2"></i> <?php echo htmlspecialchars($settings['email']); ?>
-                    </p>
+                    
+                    <h5 class="text-uppercase fw-bold mt-4 mb-3">Suivez-nous</h5>
+                    <div class="mt-3">
+                        <?php if ($settings['facebook'] != ''): ?>
+                            <a href="<?php echo htmlspecialchars($settings['facebook']); ?>" target="_blank" class="text-white-50 text-decoration-none me-3" title="Facebook"><i class="bi bi-facebook fs-4"></i></a>
+                        <?php endif; ?>
+                        <?php if ($settings['twitter'] != ''): ?>
+                            <a href="<?php echo htmlspecialchars($settings['twitter']); ?>" target="_blank" class="text-white-50 text-decoration-none me-3" title="Twitter"><i class="bi bi-twitter-x fs-4"></i></a>
+                        <?php endif; ?>
+                        <?php if ($settings['instagram'] != ''): ?>
+                            <a href="<?php echo htmlspecialchars($settings['instagram']); ?>" target="_blank" class="text-white-50 text-decoration-none me-3" title="Instagram"><i class="bi bi-instagram fs-4"></i></a>
+                        <?php endif; ?>
+                        <?php if ($settings['youtube'] != ''): ?>
+                            <a href="<?php echo htmlspecialchars($settings['youtube']); ?>" target="_blank" class="text-white-50 text-decoration-none me-3" title="YouTube"><i class="bi bi-youtube fs-4"></i></a>
+                        <?php endif; ?>
+                        <?php if ($settings['linkedin'] != ''): ?>
+                            <a href="<?php echo htmlspecialchars($settings['linkedin']); ?>" target="_blank" class="text-white-50 text-decoration-none me-3" title="LinkedIn"><i class="bi bi-linkedin fs-4"></i></a>
+                        <?php endif; ?>
+                    </div>
+                    <div class="mt-3">
+                        <h5 class="text-uppercase fw-bold mb-4">Autres</h5>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2">
+                                <a href="rss.php" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-rss me-2"></i> Flux RSS</a>
+                            </li>
+                            <li class="mb-2">
+                                <a href="sitemap.php" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-diagram-3 me-2"></i> Sitemap</a>
+                            </li>
+                        </ul>
+                    </div>                
                 </div>
+
+
+
+
 
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h5 class="text-uppercase fw-bold mb-4">Navigation</h5>
                     <ul class="list-unstyled mb-0">
                         <?php
-                        // Boucle pour récupérer les liens du menu (avec icônes)
+                        // Boucle pour les liens du menu
                         $menu_query = mysqli_query($connect, "SELECT * FROM `menu` WHERE active = 'Yes' ORDER BY id ASC");
                         while ($menu_item = mysqli_fetch_assoc($menu_query)) {
                             echo '<li class="mb-2">
@@ -1952,47 +2644,57 @@ function footer()
                             </li>';
                         }
                         ?>
-                    </ul>
-                </div>
-
-                <div class="col-lg-2 col-md-6 mb-4">
-                    <h5 class="text-uppercase fw-bold mb-4">Suivez-nous</h5>
-                    <ul class="list-unstyled mb-0">
-                        <?php if ($settings['facebook'] != ''): ?>
-                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['facebook']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-facebook me-2"></i> Facebook</a></li>
-                        <?php endif; ?>
-                        <?php if ($settings['twitter'] != ''): ?>
-                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['twitter']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-twitter-x me-2"></i> Twitter</a></li>
-                        <?php endif; ?>
-                        <?php if ($settings['instagram'] != ''): ?>
-                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['instagram']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-instagram me-2"></i> Instagram</a></li>
-                        <?php endif; ?>
-                        <?php if ($settings['youtube'] != ''): ?>
-                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['youtube']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-youtube me-2"></i> YouTube</a></li>
-                        <?php endif; ?>
-                        <?php if ($settings['linkedin'] != ''): ?>
-                            <li class="mb-2"><a href="<?php echo htmlspecialchars($settings['linkedin']); ?>" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-linkedin me-2"></i> LinkedIn</a></li>
-                        <?php endif; ?>
-                    </ul>
-                </div>
-
-                <div class="col-lg-2 col-md-6 mb-4">
-                    <h5 class="text-uppercase fw-bold mb-4">Autres</h5>
-                    <ul class="list-unstyled mb-0">
-                        <li class="mb-2">
-                            <a href="rss.php" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-rss me-2"></i> Flux RSS</a>
+                        <!-- li class="mb-2">
+                            <a href="rss.php" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-rss me-2" style="width: 1.2em;"></i> Flux RSS</a>
                         </li>
                         <li class="mb-2">
-                            <a href="sitemap.php" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-diagram-3 me-2"></i> Sitemap</a>
-                        </li>
+                            <a href="sitemap.php" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-diagram-3 me-2" style="width: 1.2em;"></i> Sitemap</a>
+                        </li -->
                     </ul>
                 </div>
-                
-                <div class="col-lg-2 col-md-6 mb-4 text-center text-lg-start">
-                    <h5 class="text-uppercase fw-bold mb-4">Logo</h5>
-                    <img src="<?php echo htmlspecialchars($settings['favicon_url']); ?>" alt="Logo" width="96" height="96">
+
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <?php if ($footer_content['legal']): ?>
+                        <h5 class="text-uppercase fw-bold mb-4"><?php echo $footer_content['legal']['title']; ?></h5>
+                        <div class="text-white-50 small mb-3">
+                            <?php echo $footer_content['legal']['content']; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($footer_content['contact_methods']): ?>
+                        <h5 class="text-uppercase fw-bold mb-4"><?php echo $footer_content['contact_methods']['title']; ?></h5>
+                        <div class="text-white-50 small">
+                            <?php echo $footer_content['contact_methods']['content']; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <?php if ($footer_content['cta_buttons']): ?>
+                        <h5 class="text-uppercase fw-bold mb-4"><?php echo $footer_content['cta_buttons']['title']; ?></h5>
+                        <div class="text-white-50 small mb-3">
+                            <?php echo $footer_content['cta_buttons']['content']; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($footer_content['most_viewed']): ?>
+                        <h5 class="text-uppercase fw-bold mb-4"><?php echo $footer_content['most_viewed']['title']; ?></h5>
+                        <div class="text-white-50 small mb-3">
+                            <?php echo $footer_content['most_viewed']['content']; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($footer_content['trust_badges']): ?>
+                        <h5 class="text-uppercase fw-bold mb-4"><?php echo $footer_content['trust_badges']['title']; ?></h5>
+                        <div class="text-white-50 small">
+                            <?php echo $footer_content['trust_badges']['content']; ?>
+                        </div>
+                    <?php else: ?>
+                        <h5 class="text-uppercase fw-bold mb-4">Logo</h5>
+                        <img src="<?php echo htmlspecialchars($settings['favicon_url']); ?>" alt="Logo" width="96" height="96">
+                    <?php endif; ?>
+                </div>
+            
             </div>
 
             <div class="text-center text-white-50 border-top border-secondary-subtle pt-3 mt-4">
@@ -2005,7 +2707,7 @@ function footer()
             
              <div class="scroll-btn"><div class="scroll-btn-arrow"></div></div>
             
-    </div>
+        </div>
 </footer>
 <?php
 global $current_page; // Récupérer le nom de la page actuelle (défini dans head())
@@ -2044,7 +2746,9 @@ if ($stmt_popups) {
 if (!empty($popups_to_show)) {
 
     // S'assurer que HTMLPurifier est prêt
-    $purifier = get_purifier();
+    if (!isset($purifier)) {
+        $purifier = get_purifier();
+    }
 
     foreach ($popups_to_show as $popup) {
         $modal_id = 'popupModal' . (int)$popup['id'];
