@@ -32,10 +32,10 @@ DROP TABLE IF EXISTS `quizzes`;
 DROP TABLE IF EXISTS `quiz_questions`;
 DROP TABLE IF EXISTS `quiz_options`;
 
--- --------------------------------------------------------
 --
 -- Base de données : `localhost`
 --
+
 -- --------------------------------------------------------
 
 --
@@ -85,7 +85,6 @@ CREATE TABLE `settings` (
 --
 INSERT INTO `settings` (`id`, `site_url`, `sitename`, `description`, `email`, `gcaptcha_sitekey`, `gcaptcha_secretkey`, `head_customcode`, `head_customcode_enabled`, `facebook`, `instagram`, `twitter`, `youtube`, `linkedin`, `comments`, `rtl`, `date_format`, `layout`, `latestposts_bar`, `sidebar_position`, `posts_per_row`, `theme`, `background_image`, `posts_per_page`, `meta_title`, `favicon_url`, `apple_touch_icon_url`, `meta_author`, `meta_generator`, `meta_robots`, `sticky_header`, `maintenance_mode`, `maintenance_title`, `maintenance_message`, `homepage_slider`) VALUES
 (1, '', 'phpBlog', 'phpBlog Content Management System', '', '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI', '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe', 'IDwhLS0gR29vZ2xlIEFuYWx5dGljcyA0IChHQTQpIFRyYWNraW5nIENvZGUgLS0+DQogPHNjcmlwdCBhc3luYyBzcmM9Imh0dHBzOi8vd3d3Lmdvb2dsZXRhZ21hbmFnZXIuY29tL2d0YWcvanM/aWQ9Ry1YWFhYWFhYWFhYIj48L3NjcmlwdD4NCiA8c2NyaXB0Pg0KICAgd2luZG93LmRhdGFMYXllciA9IHdpbmRvdy5kYXRhTGF5ZXIgfHwgW107DQogICBmdW5jdGlvbiBndGFnKCl7ZGF0YUxheWVyLnB1c2goYXJndW1lbnRzKTt9DQogICBndGFnKCdqcycsIG5ldyBEYXRlKCkpOw0KICAgZ3RhZygnY29uZmlnJywgJ0ctWFhYWFhYWFhYWCcpOw0KIDwvc2NyaXB0Pg0KPCEtLSBSZXN0IG9mIHlvdXIgaGVhZCBjb250ZW50IC0tPg==', 'Off', '', '', '', '', '', 'guests', 'No', 'd.m.Y', 'Fixed', 'Enabled', 'Right', '3', 'Bootstrap 5', '', '4', 'phpBlog - Titre SEO', 'assets/img/favicon.png', 'assets/img/favicon.png', 'Antonov_WEB', 'phpBlog', 'index, follow, all', 'Off', 'Off', 'Site Under Maintenance', '<p>Our website is currently undergoing maintenance. We apologize for the inconvenience. We will be back soon!</p>', 'Custom');
-
 -- --------------------------------------------------------
 
 --
@@ -182,7 +181,9 @@ INSERT INTO `menu` (`id`, `page`, `path`, `fa_icon`, `active`) VALUES
 (2, 'About', 'page?name=about', 'fa-info-circle', 'Yes'),
 (3, 'Gallery', 'gallery', 'fa-images', 'Yes'),
 (4, 'Posts', 'blog', 'fa-list', 'Yes'),
-(5, 'Contact', 'contact', 'fa-envelope', 'Yes');
+(5, 'Contact', 'contact', 'fa-envelope', 'Yes'),
+(6, 'FAQ', 'faq', 'fa-question-circle', 'Yes'),
+(7, 'Quiz', 'quiz', 'fas fa-graduation-cap', 'Yes');
 
 -- --------------------------------------------------------
 
@@ -349,23 +350,21 @@ CREATE TABLE IF NOT EXISTS `user_favorites` (
 --
 -- Structure de la table `widgets`
 --
-DROP TABLE IF EXISTS `widgets`;
 CREATE TABLE IF NOT EXISTS `widgets` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
   `widget_type` varchar(50) NOT NULL DEFAULT 'html',
   `content` mediumtext NULL,
   `config_data` text DEFAULT NULL,
   `position` varchar(10) NOT NULL DEFAULT 'Sidebar',
-  `active` varchar(3) NOT NULL DEFAULT 'Yes',
-  PRIMARY KEY (`id`)
+  `active` varchar(3) NOT NULL DEFAULT 'Yes'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `widgets`
 --
-INSERT INTO `widgets` (`id`, `title`, `content`, `position`, `active`) VALUES
-(1, 'Text Widget', '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam ornare sem tempor massa volutpat, quis varius urna placerat. Aliquam erat volutpat. Suspendisse lorem odio, imperdiet ut elit vitae, dignissim pretium odio. </p>\r\n', 'Sidebar', 'Yes');
+INSERT INTO `widgets` (`id`, `title`, `widget_type`, `content`, `config_data`, `position`, `active`) VALUES
+(1, 'Text Widget', 'html', '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam ornare sem tempor massa volutpat, quis varius urna placerat. Aliquam erat volutpat. Suspendisse lorem odio, imperdiet ut elit vitae, dignissim pretium odio. </p>\r\n', NULL, 'Sidebar', 'Yes');
 
 -- --------------------------------------------------------
 
@@ -373,64 +372,54 @@ INSERT INTO `widgets` (`id`, `title`, `content`, `position`, `active`) VALUES
 -- Structure de la table `mega_menus`
 --
 CREATE TABLE `mega_menus` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL COMMENT 'Nom interne pour l administration',
   `trigger_text` varchar(255) NOT NULL COMMENT 'Texte affiché dans la barre de menu',
   `trigger_icon` varchar(50) NOT NULL DEFAULT 'fa-bars' COMMENT 'Icône FontAwesome',
   `trigger_link` varchar(255) NOT NULL DEFAULT '#' COMMENT 'Lien au clic sur le parent',
-  
-  -- Configuration Colonne 1 (Gauche - Explore)
   `col_1_title` varchar(255) DEFAULT 'Explore',
   `col_1_content` LONGTEXT COMMENT 'Contenu HTML ou Liens',
-  
-  -- Configuration Colonne 2 (Centre - Catégories)
   `col_2_title` varchar(255) DEFAULT 'Categories',
-  `col_2_type` enum('categories', 'custom', 'none') NOT NULL DEFAULT 'categories',
+  `col_2_type` enum('categories','custom','none') NOT NULL DEFAULT 'categories',
   `col_2_content` LONGTEXT COMMENT 'Si type custom',
-  
-  -- Configuration Colonne 3 (Droite - Articles Récents)
   `col_3_title` varchar(255) DEFAULT 'Newest',
-  `col_3_type` enum('latest_posts', 'custom', 'none') NOT NULL DEFAULT 'latest_posts',
+  `col_3_type` enum('latest_posts','custom','none') NOT NULL DEFAULT 'latest_posts',
   `col_3_content` LONGTEXT COMMENT 'Si type custom',
-  
   `position_order` int(11) NOT NULL DEFAULT 0,
   `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------
 
 --
--- Structure de la table `polls`, `poll_options`, et `poll_voters`
+-- Structure de la table `polls`
 --
--- 1. Table des Sondages (La question)
 CREATE TABLE `polls` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `question` varchar(255) NOT NULL,
   `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 2. Table des Options (Les réponses possibles)
+--
+-- Structure de la table `poll_options`
+--
 CREATE TABLE `poll_options` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `poll_id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
-  `votes` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `poll_id` (`poll_id`)
+  `votes` int(11) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. Table des Votants (Anti-Doublon par IP)
+--
+-- Structure de la table `poll_voters`
+--
 CREATE TABLE `poll_voters` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `poll_id` int(11) NOT NULL,
   `ip_address` varchar(45) NOT NULL,
-  `voted_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `poll_ip` (`poll_id`, `ip_address`)
+  `voted_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------
@@ -439,13 +428,12 @@ CREATE TABLE `poll_voters` (
 -- Structure de la table `faqs`
 --
 CREATE TABLE `faqs` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `question` varchar(255) NOT NULL,
   `answer` LONGTEXT NOT NULL,
   `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
-  `position_order` int(11) NOT NULL DEFAULT 0,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  `position_order` int(11) NOT NULL DEFAULT '0',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------
@@ -454,14 +442,13 @@ CREATE TABLE `faqs` (
 -- Structure de la table `testimonials`
 --
 CREATE TABLE `testimonials` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
   `position` varchar(255) DEFAULT NULL COMMENT 'Ex: CEO of TechCorp',
   `content` TEXT NOT NULL,
   `avatar` varchar(255) DEFAULT NULL,
-  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  `active` enum('Yes','No','Pending') NOT NULL DEFAULT 'Pending',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------
@@ -469,17 +456,15 @@ CREATE TABLE `testimonials` (
 --
 -- Structure de la table `slides`
 --
--- 1. Table pour les diapositives personnalisées
 CREATE TABLE `slides` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `title` varchar(255) DEFAULT NULL,
   `description` TEXT DEFAULT NULL,
   `image_url` varchar(255) NOT NULL,
   `link_url` varchar(255) DEFAULT '#',
   `position_order` int(11) NOT NULL DEFAULT 0,
   `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------
@@ -507,7 +492,9 @@ CREATE TABLE `quiz_questions` (
   `explanation` LONGTEXT NULL,
   `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
   `position_order` int(11) NOT NULL DEFAULT '0',
-  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `quiz_id` (`quiz_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -517,16 +504,16 @@ CREATE TABLE `quiz_options` (
   `id` int(11) NOT NULL,
   `question_id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
-  `is_correct` enum('Yes','No') NOT NULL DEFAULT 'No'
+  `is_correct` enum('Yes','No') NOT NULL DEFAULT 'No',
+  PRIMARY KEY (`id`),
+  KEY `question_id` (`question_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- -------------------------------------------------------
+-- --------------------------------------------------------
 
--- -------------------------------------------------------
 --
 -- Index pour les tables déchargées
 --
--- -------------------------------------------------------
 
 --
 -- Index pour la table `settings` 
@@ -711,24 +698,18 @@ ALTER TABLE `quizzes`
 --
 -- Index pour la table `quiz_questions`
 --
-ALTER TABLE `quiz_questions`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `quiz_id` (`quiz_id`);
+-- (La clé primaire et la clé 'quiz_id' sont déjà définies dans CREATE TABLE)
+--
 
 --
 -- Index pour la table `quiz_options`
 --
-ALTER TABLE `quiz_options`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `question_id` (`question_id`);
-
--- -------------------------------------------------------
-
--- -------------------------------------------------------  
+-- (La clé primaire et la clé 'question_id' sont déjà définies dans CREATE TABLE)
+--
+  
 --
 -- AUTO_INCREMENT pour les tables déchargées
 --
--- -------------------------------------------------------
 
 --
 -- AUTO_INCREMENT pour la table `albums`
@@ -764,7 +745,7 @@ ALTER TABLE `gallery`
 -- AUTO_INCREMENT pour la table `menu`
 --
 ALTER TABLE `menu`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT pour la table `messages`
