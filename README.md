@@ -1,176 +1,290 @@
----
+-----
 
-# phpBlog v2.9 (Édition Modifiée)
+# phpBlog v2.9.5 (Édition Complète)
+
 phpBlog - News, Blog & Magazine CMS
 
-## Améliorations (Version 2.9)
+## Vue d'ensemble
 
-Cette version du phpBlog 2.4 a été largement améliorée pour inclure des fonctionnalités modernes, des correctifs de sécurité critiques et des optimisations de performance majeures.
+Cette version **v2.9.6** est l'aboutissement de la refonte du CMS. Elle transforme le blog en une plateforme professionnelle, riche, interactive et sécurisée, dotée d'outils d'engagement et de maintenance avancés.
 
----
+Les ajouts finaux incluent un système de **Quiz Avancé** avec classement et un **Footer entièrement dynamique** géré depuis l'administration.
 
-### 🚀 Nouveautés Majeures (Post-v2.8.1)
+-----
 
-Cette version introduit des modules de niveau professionnel pour la gestion de contenu et l'administration du site.
+### 🌟 Nouveautés Exclusives (v2.9.6)
 
-* **Gestionnaire de Mode Maintenance :**
-    * Page dédiée (`admin/maintenance.php`) pour activer/désactiver le site.
-    * Éditeur de texte complet pour personnaliser la page de maintenance (titre, message, images).
-    * **Contournement Admin :** Les administrateurs connectés voient le site normalement, tandis que les visiteurs voient la page de maintenance.
-    * **Indicateur Admin :** Un indicateur visuel (Rouge/Vert) "Maintenance ON/OFF" est visible dans le menu du site, uniquement pour les administrateurs.
+#### 🎓 Gestionnaire de Quiz Avancé (Refonte majeure)
 
-* **Gestionnaire de Popups (CRUD) :**
-    * Un gestionnaire complet (Ajouter, Modifier, Lister, Supprimer) a été ajouté à l'admin (`admin/popups.php`, `admin/add_popup.php`, `admin/edit_popup.php`).
-    * Éditeur de texte (Summernote) pour le contenu, supporte les images (Base64) et leur redimensionnement.
-    * **Règles d'affichage :** Contrôle total [On/Off], délai d'affichage (en secondes), affichage unique par session, et choix d'affichage (page d'accueil ou toutes les pages).
-    * **Design :** Le style du popup a été épuré (suppression de l'en-tête) et les images sont automatiquement redimensionnées à 100% de la largeur du popup pour un affichage optimal.
+Le système de quiz a été entièrement reconstruit pour devenir un module d'engagement majeur :
 
-* **Importateur de Flux RSS :**
-    * Module complet pour agréger du contenu externe.
-    * Gestion des flux (Ajouter/Supprimer) depuis l'admin.
-    * Importation manuelle ("Importer") ou automatique (via Tâche Cron).
-    * Détection avancée des images (y compris les tags `<media:content>`).
-    * Gestion intelligente des doublons d'articles (via GUID) et de slugs (URLs).
+  * **Système Multi-Quiz :** L'administrateur peut créer un nombre illimité de "conteneurs" de quiz (table `quizzes`).
+  * **Propriétés du Quiz :** Chaque quiz possède son propre titre, une description (HTML), une image d'en-tête et un niveau de difficulté (Facile, Normal, Difficile, Expert).
+  * **Frontend Dynamique :** La page `quiz.php` est désormais un portail :
+      * **Galerie des Quiz :** Affiche tous les quiz actifs sous forme de cartes.
+      * **Page de Quiz :** `quiz.php?id=X` affiche l'en-tête du quiz, la description, et lance le formulaire de questions.
+  * **Système de Classement (Leaderboard) :**
+      * Les utilisateurs doivent être connectés pour jouer.
+      * Enregistre les tentatives, le score en pourcentage (%) et le temps en secondes dans la table `quiz_attempts`.
+      * La page de quiz affiche le meilleur score personnel de l'utilisateur, la moyenne globale, et le **Top 9 des joueurs** pour ce quiz spécifique.
+  * **Widget "Hall of Fame" :**
+      * Un nouveau widget "intelligent" peut être placé dans la sidebar.
+      * **Sur une page de quiz :** Affiche le classement et les statistiques *spécifiques* à ce quiz (style capture d'écran).
+      * **Partout ailleurs (Accueil, Blog...) :** Affiche un "Hall of Fame" *global* des 10 meilleurs joueurs (basé sur le score moyen de tous les quiz), incluant leur avatar et le dernier quiz joué.
 
-* **Refonte des Paramètres & SEO :**
-    * **Migration de la BDD :** Remplacement de l'ancienne table `settings` (clé/valeur) par une table moderne à ligne unique, optimisée pour la performance.
-    * **SEO Avancé :** Ajout de champs gérables pour `meta_title`, `meta_author`, `meta_generator`, `meta_robots`, et les icônes (`favicon_url`, `apple_touch_icon_url`).
-    * **Contrôles [On/Off] :** Ajout d'interrupteurs pour le "Sticky Header" et le "Head Custom Code".
+#### 📄 Gestionnaire de Pages de Footer (Nouveau)
 
----
+  * **Contrôle Total :** Un nouveau menu "Pages Footer" dans l'admin permet de gérer 5 blocs de contenu fixes.
+  * **Gestion de Contenu :** L'administrateur peut modifier le titre et le contenu (via l'éditeur Summernote) et activer/désactiver chaque page (Infos Légales, Moyens de Contact, Pages Consultées, Call-to-Action, Gages de Confiance).
+  * **Affichage Dynamique :** La fonction `footer()` dans `core.php` récupère et affiche dynamiquement ces blocs dans le pied de page public, en s'intégrant à la structure existante.
 
-### 🎨 Améliorations de l'Interface (UI/UX) (Post-v2.8.1)
+#### 🎨 Interface d'Administration Améliorée
 
-* **Header "Sticky" :** Le menu principal peut être "collant" et reste visible au défilement (gérable via l'admin).
-* **Footer Moderne :** Remplacement du pied de page par un design professionnel à 5 colonnes (Navigation, Réseaux, Méta, Logo), dynamique et épuré.
-* **Affichage des Méta-tags :** Le `<head>` du site utilise désormais les nouveaux paramètres SEO pour un meilleur référencement et partage social.
+  * **Tableau de Bord :** Les "Info-Box" pour "Quiz" et "FAQ" affichent désormais un badge rouge "new" (identique à "Testimonials") pour signaler les éléments inactifs ou en attente.
 
----
+#### 🎨 Mega Menu "Next-Gen" (Frontend)
 
-### 🔧 Nouveaux Correctifs (Post-v2.8.1)
+Le système de navigation a été entièrement repensé pour offrir une expérience utilisateur moderne et **100% responsive** :
 
-* **Mode Sombre :** Correction du script JavaScript dans le `footer()` qui empêchait le changement de thème (Light/Dark).
-* **Sauvegarde Admin :** Correction d'un bug critique dans `admin/settings.php` qui empêchait la sauvegarde des 29+ paramètres.
-* **Déconnexion (CSRF) :** Sécurisation du `logout.php` pour exiger une validation de jeton.
-* **Filtre de Contenu (HTMLPurifier) :** Correction du filtre `core.php` pour autoriser les images en Base64 (`data:`) et leur redimensionnement (`style="width:..."`) dans les popups et la page de maintenance.
-* **Base de Données :** Correction des types de colonnes (`TEXT` vers `LONGTEXT`) pour les Popups et la Maintenance afin d'autoriser les images volumineuses.
+  * **Structure Avancée :** Un menu déroulant large centré, structuré en 3 colonnes stratégiques.
+  * **Contenu Riche :**
+    1.  **Explore :** Liens rapides et flux RSS.
+    2.  **Catégories :** Liste complète sur deux colonnes.
+    3.  **Nouveautés (Visuel) :** Affichage dynamique des **4 derniers articles avec images miniatures** et dates.
+  * **Mobile-First :** Le menu se transforme intelligemment en accordéon fluide sur mobile, et en "carte flottante" sur PC.
 
----
+#### 🚀 Modules Professionnels
 
-### 🔧 Correctifs (Live / Post-v2.9)
+  * **📢 Importateur de Flux RSS (Auto-Blogging) :**
 
-Ces correctifs ont été appliqués pour améliorer la stabilité et l'expérience utilisateur :
+      * Agrégation de contenu externe manuelle ou automatique (CRON).
+      * **Intelligence Artificielle :** Détection automatique de l'image principale via les balises `<media:content>`, `<enclosure>` ou analyse du HTML.
+      * **Anti-Doublons :** Vérification des GUID pour garantir un contenu unique.
 
-* **Correction Bug Commentaires :** Résolution d'un bug critique où les commentaires étaient postés en double. La cause était une inclusion multiple du script `post-interactions.js` dans `core.php`, qui a été corrigée.
-* **Connexion Admin en Mode Maintenance :**
-    * Ajout d'un point d'entrée `admin.php` à la racine pour permettre aux administrateurs de se connecter lorsque le mode maintenance est actif.
-    * Création de `core-admin.php` pour fournir une logique de connexion isolée à cette page, sans charger l'intégralité du thème du site.
+  * **💬 Gestionnaire de Popups (Marketing) :**
 
----
+      * Création de fenêtres modales avec éditeur visuel (Summernote).
+      * **Ciblage Précis :** Choix des pages (Accueil vs Tout le site), délai d'apparition, et fréquence (une fois par session ou à chaque chargement).
+      * **Gestion Admin :** Activation/Désactivation rapide (Toggle) sans supprimer le popup.
 
-## Fonctionnalités et Base (Version 2.8.1)
+  * **🚧 Mode Maintenance Avancé :**
 
-Ce qui suit constitue la base fonctionnelle sur laquelle la v2.9 a été construite.
+      * Page d'attente personnalisable pour les visiteurs.
+      * **Accès Admin Préservé :** Les administrateurs connectés voient le site normalement.
+      * **Indicateur Visuel :** Badge "Maintenance ON" visible dans le menu admin pour éviter les oublis.
 
-### 🚀 Fonctionnalités (Base v2.8.1)
+#### 🖼️ Gestionnaire de Slider d'Accueil
 
-* **Système de Tags Complet :** Ajout d'un système de tags (mots-clés).
-    * Intégration de **Tagify** dans l'administration (`admin/add_post.php`, `admin/posts.php`).
-    * Affichage des tags cliquables sur les articles (`post.php`).
-    * Nouvelle page `tag.php` pour lister les articles par tag.
-    * Ajout d'un widget "Nuage de Tags Populaires" (`core.php`).
+Flexibilité totale pour votre page d'accueil :
 
-* **Gestion avancée du menu :**
-    * Ajout d'un statut "Publiée" / "Brouillon" pour chaque élément du menu.
-    * Ajout d'onglets de filtrage (Tous / Publiées / Brouillons) dans l'admin.
-    * Le statut d'une page est synchronisé avec l'élément de menu correspondant.
+  * **Double Mode :** L'administrateur peut choisir via les Réglages (`admin/settings.php`) quel slider afficher :
+    1.  **Articles en Vedette (Défaut) :** Affiche automatiquement les articles marqués "featured".
+    2.  **Slider Personnalisé (Nouveau) :** Affiche des diapositives marketing créées manuellement.
+  * **Gestion Admin :** Un module complet (`admin/slides.php`) permet de créer, modifier, ordonner et supprimer des diapositives personnalisées (Image, Titre, Description HTML, Lien).
 
-* **Refonte du Profil Utilisateur :**
-    * L'avatar par défaut est géré via CSS.
-    * L'en-tête du profil affiche un aperçu de l'avatar (`profile.php`).
-    * La taille des avatars est contrôlée en CSS.
-    * La suppression de l'avatar réinitialise correctement l'avatar par défaut (`profile.php`).
+#### 🛠️ Outils Système & Maintenance
 
-* **Améliorations du Système de Commentaires :**
-    * Reconstruction pour permettre les **réponses imbriquées (threading)** (`post.php`, `core.php`).
-    * Ajout de la **soumission de commentaires en AJAX** (`ajax_submit_comment.php`, `phpblog.js`).
-    * Ajout d'un bouton "Répondre".
-    * Ajout d'un bouton "Modifier" pour ses propres commentaires (`edit-comment.php`).
-    * Ajout de **Badges Utilisateur** automatiques (Pipette, Actif, Loyal, Vétéran).
+  * **💾 Gestionnaire de Sauvegarde (Backup) :**
+      * **1-Click Backup :** Génère et sauvegarde un fichier `.sql` complet dans un dossier sécurisé (`/backup-database/`) sur le serveur.
+      * **Gestionnaire d'Historique :** Affiche la liste de toutes les sauvegardes (date, taille) avec des options pour **Télécharger** ou **Supprimer**.
 
-* **Optimisations des Requêtes (N+1) :**
-    * Optimisation majeure des requêtes sur la barre latérale (`core.php`) : les requêtes pour le comptage des articles par catégorie et les commentaires récents ne sont exécutées qu'une seule fois.
+#### 📊 Modules d'Interaction & UGC
 
-* **Mode Sombre (Dark Mode) :**
-    * Ajout d'un sélecteur de thème (Clair/Sombre) persistant (`core.php`, `phpblog.js`).
-    * Le site respecte la préférence système de l'utilisateur (prefers-color-scheme).
+  * **💬 Gestionnaire de Témoignages (Testimonials) :**
+      * **Soumission Frontend :** Les utilisateurs connectés peuvent soumettre leurs propres témoignages via leur menu profil.
+      * **Flux de Modération Admin :** Les soumissions reçoivent le statut **"Pending"** et peuvent être approuvées en 1 clic.
+      * **Affichage :** Slider Bootstrap sur la page d'accueil.
+  * **🗳️ Système de Sondages (Polls) :**
+      * Widget Sidebar avec vote AJAX et affichage des résultats.
+      * Protection anti-spam par IP et Cookies.
 
-* **Qualité de Code et Sécurité :**
-    * Remplacement de `mysql_*` par `mysqli_*` avec **requêtes préparées**.
-    * Implémentation de **jetons Anti-CSRF** sur tous les formulaires.
-    * **HTML Purifier :** Intégration pour nettoyer tout le contenu HTML généré par les utilisateurs (articles, commentaires, widgets).
-    * **Content Security Policy (CSP) :** Ajout d'en-têtes CSP.
+-----
 
-* **Connexion Sociale (OAuth) :**
-    * Ajout de la connexion via **Google**.
-    * Intégration de la bibliothèque `Hybridauth`.
-    * Création automatique d'un compte utilisateur (`social_callback.php`).
+### 🛡️ Sécurité Renforcée
 
-* **Synchronisation des Avatars :**
-    * L'avatar du profil Google est automatiquement récupéré et mis à jour à chaque connexion (`social_callback.php`).
+  * **Protection Totale :** Anti-CSRF (Tous formulaires), Anti-XSS (HTMLPurifier), Anti-SQLi (Requêtes préparées).
+  * **Authentification :** Protection Brute Force (Blocage temporaire) et hachage `password_hash()`.
+  * **Installation :** Séparation des e-mails (Site vs Admin).
 
----
+-----
 
-### ✨ Engagement des Utilisateurs (Base v2.8.1)
+### 📋 Prérequis
 
-* **Système de Favoris :** Les utilisateurs connectés peuvent enregistrer des articles dans une liste personnelle (`my-favorites.php`) via un bouton AJAX.
-* **Profils Auteurs Publics :** Une nouvelle page `author.php` affiche la biographie et tous les articles d'un auteur.
-* **Badges de Commentaires :** Un système de "gamification" qui affiche des badges (ex: "Pipelette", "Actif", "Fidèle") en fonction du nombre de commentaires.
+  * PHP 7.4 ou supérieur (8.0+ recommandé)
+  * Extension PHP `mysqli` & `mbstring`
+  * Extension PHP `curl` (pour RSS) et `gd` (pour les images)
+  * Apache avec `mod_rewrite` activé
 
----
+-----
 
-### 🔧 Administration (Tableau de bord v2.8.1)
+### 💿 Installation
 
-* **Statistiques Exploitables :** Remplacement par des cartes d'action rapide (Articles Publiés, Ébauches, Commentaires en attente, etc.) (`admin/dashboard.php`).
-* **Graphique des Vues :** Ajout d'un graphique (Chart.js) affichant les 5 articles les plus populaires.
-* **Aperçu Rapide :** Widget affichant la version du blog, le nombre d'utilisateurs et le thème.
-* **Création d'Utilisateurs :** Les administrateurs peuvent créer de nouveaux utilisateurs depuis l'admin (`admin/add_user.php`).
-* **Système d'Ébauches (Drafts) :** Statuts "Ébauche", "Publié" ou "Inactif" pour les articles.
-* **Temps de Lecture Estimé :** Affiche une estimation du temps de lecture (ex: "Lecture : 4 min") sur les articles.
+1.  Uploadez les fichiers sur votre serveur.
+2.  Créez une base de données MySQL vide.
+3.  Rendez-vous sur `votre-site.com/install/` et suivez l'assistant.
+4.  **Sécurité :** Supprimez le dossier `/install/` une fois terminé.
 
----
+-----
 
-### 🔐 Sécurité (Base v2.4+ / v2.8.1)
+### 🔄 Instructions de Mise à Jour (SQL)
 
-* **Installeur Sécurisé :** L'ancien installeur (base v2.4) a été entièrement réécrit.
-    * Utilise `mysqli` avec des **requêtes préparées**.
-    * Ne stocke plus les mots de passe en clair dans la session.
-    * Écrit un `config.php` moderne et propre.
+Si vous mettez à jour depuis une version ancienne, appliquez les blocs SQL pertinents.
 
-* **Anti-SQL Injection :** Migration de toutes les requêtes `mysql_*` vers `mysqli` avec **requêtes préparées** sur l'ensemble du site.
+```sql
+-- 1. Paramètres Maintenance & Header
+ALTER TABLE `settings` ADD `sticky_header` varchar(10) NOT NULL DEFAULT 'Off';
+ALTER TABLE `settings` ADD `maintenance_mode` varchar(10) NOT NULL DEFAULT 'Off';
+ALTER TABLE `settings` ADD `maintenance_title` varchar(255) NOT NULL DEFAULT 'Site Under Maintenance';
+ALTER TABLE `settings` ADD `maintenance_message` LONGTEXT NULL;
 
-* **Anti-XSS (Cross-Site Scripting) :**
-    * Intégration de **HTMLPurifier** pour nettoyer tout le contenu généré par les utilisateurs.
-    * Mise en place de `htmlspecialchars()` sur toutes les sorties de données simples.
+-- 2. Table Flux RSS
+CREATE TABLE `rss_imports` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `feed_url` varchar(255) NOT NULL,
+  `import_as_user_id` int(11) NOT NULL,
+  `import_as_category_id` int(11) NOT NULL,
+  `last_import_time` datetime DEFAULT NULL,
+  `is_active` int(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`)
+);
 
-* **Anti-CSRF (Cross-Site Request Forgery) :**
-    * Implémentation de jetons (tokens) `$_SESSION['csrf_token']` sur tous les formulaires critiques.
-    * Ajout de fonctions de validation (`validate_csrf_token()`, `validate_csrf_token_get()`) dans `core.php`.
+-- 3. Table Popups
+CREATE TABLE `popups` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `content` LONGTEXT NOT NULL,
+  `active` varchar(3) NOT NULL DEFAULT 'No',
+  `display_pages` varchar(255) NOT NULL DEFAULT 'home',
+  `show_once_per_session` varchar(3) NOT NULL DEFAULT 'Yes',
+  `delay_seconds` int(3) NOT NULL DEFAULT 2,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+);
 
-* **Protection Brute Force :**
-    * Ajout d'un système de limitation des tentatives de connexion (`admin/index.php`).
-    * Bloque la connexion pendant 5 minutes après 5 échecs.
+-- 4. Support RSS (GUID unique)
+ALTER TABLE `posts` ADD `imported_guid` varchar(255) DEFAULT NULL;
+ALTER TABLE `posts` ADD UNIQUE KEY `imported_guid_unique` (`imported_guid`);
 
-* **Sécurité des Mots de Passe (Base v2.4+) :** Le stockage des mots de passe a été migré de `sha256` (obsolète) vers les fonctions PHP modernes et sécurisées `password_hash()` et `password_verify()` (`login.php`, `profile.php`, `install/done.php`).
+-- 5. Sondages (Polls)
+CREATE TABLE `polls` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `question` varchar(255) NOT NULL,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+);
 
----
+CREATE TABLE `poll_options` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `poll_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `votes` int(11) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `poll_id` (`poll_id`)
+);
 
-### 🐞 Corrections de Bugs (Base v2.8.1)
+CREATE TABLE `poll_voters` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `poll_id` int(11) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `voted_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `poll_ip` (`poll_id`, `ip_address`)
+);
 
-* **Correction du Menu Public :** Le menu principal du site (`core.php`) n'affiche désormais que les éléments ayant le statut "Publiée".
-* **Correction Layout Admin :** Correction d'un bug de mise en page dans `admin/users.php` (balises manquantes).
-* **Correction Avatars Admin :** Correction d'un bug d'affichage où les avatars de grande taille déformaient le widget "Recent Comments" (`admin/header.php`).
-* **Correction Marquee :** Correction d'une faute de frappe (`&;`) dans la barre de défilement "Latest Posts" (`core.php`).
-* **Correction Page Recherche :** Correction d'un bug d'affichage (HTML échappé) sur `search.php` lors de l'affichage du nom de l'auteur.
-* **Correction Erreur Fatale :** Correction d'une erreur `Fatal error: Cannot redeclare short_text()` dans `admin/header.php`.
-* **Correction Installation :** Correction d'une erreur de chemin (`config.php` ou `../`) lors du processus d'installation.
+-- 6. Témoignages (Testimonials)
+CREATE TABLE `testimonials` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `position` varchar(255) DEFAULT NULL,
+  `content` TEXT NOT NULL,
+  `avatar` varchar(255) DEFAULT NULL,
+  `active` enum('Yes','No','Pending') NOT NULL DEFAULT 'Pending',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+);
+
+-- 7. Slider Personnalisé
+CREATE TABLE `slides` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) DEFAULT NULL,
+  `description` TEXT DEFAULT NULL,
+  `image_url` varchar(255) NOT NULL,
+  `link_url` varchar(255) DEFAULT '#',
+  `position_order` int(11) NOT NULL DEFAULT 0,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+);
+
+ALTER TABLE `settings`
+ADD COLUMN `homepage_slider` ENUM('Featured', 'Custom') NOT NULL DEFAULT 'Featured';
+
+-- 8. NOUVEAU v2.9.6 : Gestionnaire de Quiz Avancé
+-- (Supprimez l'ancienne table 'faqs' si elle n'est plus utilisée)
+-- DROP TABLE IF EXISTS `faqs`;
+
+CREATE TABLE `quizzes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `description` TEXT NULL,
+  `image` varchar(255) NULL,
+  `difficulty` ENUM('FACILE','NORMAL','DIFFICILE','EXPERT') NOT NULL DEFAULT 'NORMAL',
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `quiz_questions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `quiz_id` int(11) DEFAULT NULL,
+  `question` varchar(255) NOT NULL,
+  `explanation` LONGTEXT NULL,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `position_order` int(11) NOT NULL DEFAULT '0',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `quiz_id` (`quiz_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `quiz_options` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `question_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `is_correct` enum('Yes','No') NOT NULL DEFAULT 'No',
+  PRIMARY KEY (`id`),
+  KEY `question_id` (`question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 9. NOUVEAU v2.9.6 : Système de classement des Quiz
+CREATE TABLE `quiz_attempts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `quiz_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `score` int(11) NOT NULL COMMENT 'Score en pourcentage (ex: 80)',
+  `time_seconds` int(11) NOT NULL COMMENT 'Temps total en secondes',
+  `attempt_date` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `quiz_id` (`quiz_id`),
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 10. NOUVEAU v2.9.6 : Pages de Footer
+CREATE TABLE `footer_pages` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `page_key` varchar(50) NOT NULL COMMENT 'Clé unique (ex: legal, contact)',
+  `title` varchar(255) NOT NULL,
+  `content` LONGTEXT NULL,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `page_key` (`page_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `footer_pages` (`id`, `page_key`, `title`, `content`, `active`) VALUES
+(1, 'legal', 'Informations Légales', '<p>Veuillez rédiger vos informations légales ici...</p>', 'Yes'),
+(2, 'contact_methods', 'Moyens de Contact', '<p>Veuillez rédiger vos moyens de contact ici...</p>', 'Yes'),
+(3, 'most_viewed', 'Pages les plus Consultées', '<p>Rédigez ici un texte ou des liens vers vos pages populaires...</p>', 'No'),
+(4, 'cta_buttons', 'Call-to-Action', '<p>Rédigez ici vos boutons d''action (ex: Newsletter, Contact)...</p>', 'No'),
+(5, 'trust_badges', 'Gages de Confiance', '<p>Insérez ici vos images de gages de confiance...</p>', 'No');
+
+```
