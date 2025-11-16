@@ -47,16 +47,16 @@ if (basename($_SERVER['SCRIPT_NAME']) != 'add_post.php'
 }
 
 if ($user['role'] == "Editor" && 
-		(
-		 basename($_SERVER['SCRIPT_NAME']) != 'dashboard.php' &&
-		 basename($_SERVER['SCRIPT_NAME']) != 'add_post.php' && 
-		 basename($_SERVER['SCRIPT_NAME']) != 'posts.php' && 
-		 basename($_SERVER['SCRIPT_NAME']) != 'add_image.php' && 
-		 basename($_SERVER['SCRIPT_NAME']) != 'gallery.php' && 
-		 basename($_SERVER['SCRIPT_NAME']) != 'upload_file.php' &&
-		 basename($_SERVER['SCRIPT_NAME']) != 'files.php'
-		)
-	) {
+        (
+         basename($_SERVER['SCRIPT_NAME']) != 'dashboard.php' &&
+         basename($_SERVER['SCRIPT_NAME']) != 'add_post.php' && 
+         basename($_SERVER['SCRIPT_NAME']) != 'posts.php' && 
+         basename($_SERVER['SCRIPT_NAME']) != 'add_image.php' && 
+         basename($_SERVER['SCRIPT_NAME']) != 'gallery.php' && 
+         basename($_SERVER['SCRIPT_NAME']) != 'upload_file.php' &&
+         basename($_SERVER['SCRIPT_NAME']) != 'files.php'
+        )
+    ) {
     // --- MODIFICATION : Remplacement de <meta> par header() ---
     header("Location: dashboard.php");
     exit;
@@ -80,6 +80,29 @@ function byte_convert($size)
 $current_page = basename($_SERVER['SCRIPT_NAME']);
 
 // --- NOUVEL AJOUT : Requêtes pour les badges ---
+$unread_messages_count = 0;
+$pending_comments_count = 0;
+$badge_backup_count = 0;
+$posts_pending_count = 0;
+$count_testi_pending = 0;
+$maintenance_status = 'Off';
+
+// --- NOUVEAUX AJOUTS (DEMANDÉS) ---
+$badge_rss_count = 0;
+$badge_popups_active = 0;
+$badge_popups_inactive = 0;
+$badge_polls_active = 0;
+$badge_polls_inactive = 0;
+$badge_faq_active = 0;
+$badge_faq_inactive = 0;
+$badge_slides_active = 0;
+$badge_slides_inactive = 0;
+$badge_mega_menus_active = 0;
+$badge_mega_menus_inactive = 0;
+$badge_quiz_active = 0;
+$badge_quiz_inactive = 0;
+// --- FIN AJOUTS ---
+
 if ($user['role'] == "Admin") {
     // Compter les messages non lus
     $stmt_msg = mysqli_prepare($connect, "SELECT COUNT(id) AS count FROM messages WHERE viewed='No'");
@@ -94,9 +117,68 @@ if ($user['role'] == "Admin") {
     $result_comm = mysqli_stmt_get_result($stmt_comm);
     $pending_comments_count = mysqli_fetch_assoc($result_comm)['count'];
     mysqli_stmt_close($stmt_comm);
-} else {
-    $unread_messages_count = 0;
-    $pending_comments_count = 0;
+    
+    // --- AJOUTS DEMANDÉS ---
+    // 1. Compter les sauvegardes
+    $backup_dir = __DIR__ . '/../backup-database/'; 
+    $backup_files = @glob($backup_dir . "*.sql");
+    if ($backup_files) {
+        $badge_backup_count = count($backup_files);
+    }
+
+    // 2. Compter les articles en attente
+    $q_pp = mysqli_query($connect, "SELECT COUNT(id) as count FROM posts WHERE active='Pending'");
+    if ($q_pp) {
+        $posts_pending_count = mysqli_fetch_assoc($q_pp)['count'];
+    }
+    
+    // 3. Statut de Maintenance
+    $maintenance_status = $settings['maintenance_mode'] ?? 'Off';
+    // --- FIN AJOUTS DEMANDÉS ---
+    
+    // --- NOUVELLES REQUÊTES DE COMPTAGE (DEMANDÉES) ---
+    
+    // RSS
+    $q_rss = mysqli_query($connect, "SELECT COUNT(id) as count FROM rss_imports");
+    if($q_rss) $badge_rss_count = mysqli_fetch_assoc($q_rss)['count'];
+    
+    // Popups
+    $q_pop_a = mysqli_query($connect, "SELECT COUNT(id) as count FROM popups WHERE active='Yes'");
+    if($q_pop_a) $badge_popups_active = mysqli_fetch_assoc($q_pop_a)['count'];
+    $q_pop_i = mysqli_query($connect, "SELECT COUNT(id) as count FROM popups WHERE active='No'");
+    if($q_pop_i) $badge_popups_inactive = mysqli_fetch_assoc($q_pop_i)['count'];
+
+    // Polls
+    $q_poll_a = mysqli_query($connect, "SELECT COUNT(id) as count FROM polls WHERE active='Yes'");
+    if($q_poll_a) $badge_polls_active = mysqli_fetch_assoc($q_poll_a)['count'];
+    $q_poll_i = mysqli_query($connect, "SELECT COUNT(id) as count FROM polls WHERE active='No'");
+    if($q_poll_i) $badge_polls_inactive = mysqli_fetch_assoc($q_poll_i)['count'];
+    
+    // FAQ
+    $q_faq_a = mysqli_query($connect, "SELECT COUNT(id) as count FROM faqs WHERE active='Yes'");
+    if($q_faq_a) $badge_faq_active = mysqli_fetch_assoc($q_faq_a)['count'];
+    $q_faq_i = mysqli_query($connect, "SELECT COUNT(id) as count FROM faqs WHERE active='No'");
+    if($q_faq_i) $badge_faq_inactive = mysqli_fetch_assoc($q_faq_i)['count'];
+    
+    // Slides
+    $q_sli_a = mysqli_query($connect, "SELECT COUNT(id) as count FROM slides WHERE active='Yes'");
+    if($q_sli_a) $badge_slides_active = mysqli_fetch_assoc($q_sli_a)['count'];
+    $q_sli_i = mysqli_query($connect, "SELECT COUNT(id) as count FROM slides WHERE active='No'");
+    if($q_sli_i) $badge_slides_inactive = mysqli_fetch_assoc($q_sli_i)['count'];
+
+    // Mega Menus
+    $q_mm_a = mysqli_query($connect, "SELECT COUNT(id) as count FROM mega_menus WHERE active='Yes'");
+    if($q_mm_a) $badge_mega_menus_active = mysqli_fetch_assoc($q_mm_a)['count'];
+    $q_mm_i = mysqli_query($connect, "SELECT COUNT(id) as count FROM mega_menus WHERE active='No'");
+    if($q_mm_i) $badge_mega_menus_inactive = mysqli_fetch_assoc($q_mm_i)['count'];
+
+    // Quiz Manager
+    $q_quiz_a = mysqli_query($connect, "SELECT COUNT(id) as count FROM quizzes WHERE active='Yes'");
+    if($q_quiz_a) $badge_quiz_active = mysqli_fetch_assoc($q_quiz_a)['count'];
+    $q_quiz_i = mysqli_query($connect, "SELECT COUNT(id) as count FROM quizzes WHERE active='No'");
+    if($q_quiz_i) $badge_quiz_inactive = mysqli_fetch_assoc($q_quiz_i)['count'];
+
+    // --- FIN NOUVELLES REQUÊTES ---
 }
 
 // --- NOUVEL AJOUT : Compter tous les articles ---
@@ -118,10 +200,21 @@ if ($user['role'] == "Admin") {
 }
 
 // Total Pages (Admin only)
-$total_pages_count = 0;
+$total_pages_count = 0; // Gardons le total au cas où
+$pages_published_count = 0;
+$pages_draft_count = 0;
+
 if ($user['role'] == "Admin") {
-    $page_count_query = mysqli_query($connect, "SELECT COUNT(id) AS count FROM `pages`");
-    $total_pages_count = mysqli_fetch_assoc($page_count_query)['count'];
+    // Compte les pages publiées
+    $page_pub_query = mysqli_query($connect, "SELECT COUNT(id) AS count FROM `pages` WHERE active='Yes'");
+    $pages_published_count = mysqli_fetch_assoc($page_pub_query)['count'];
+    
+    // Compte les pages en brouillon
+    $page_draft_query = mysqli_query($connect, "SELECT COUNT(id) AS count FROM `pages` WHERE active='No'");
+    $pages_draft_count = mysqli_fetch_assoc($page_draft_query)['count'];
+    
+    // Mettre à jour le total (si vous le souhaitez, sinon $total_pages_count peut être supprimé)
+    $total_pages_count = $pages_published_count + $pages_draft_count;
 }
 
 // Total Categories (Admin only)
@@ -171,6 +264,13 @@ if ($user['role'] == "Admin") {
     // Compte les menus en brouillon
     $menu_draft_query = mysqli_query($connect, "SELECT COUNT(id) AS count FROM `menu` WHERE active='No'");
     $menu_draft_count = mysqli_fetch_assoc($menu_draft_query)['count'];
+}
+
+// --- NOUVEAUX COMPTAGES POUR LES BADGES (TESTIMONIALS) ---
+// $count_testi_pending est déjà déclaré plus haut
+if ($user['role'] == "Admin") {
+    $q_tp = mysqli_query($connect, "SELECT COUNT(id) as count FROM testimonials WHERE active='Pending'");
+    if($q_tp) $count_testi_pending = mysqli_fetch_assoc($q_tp)['count'];
 }
 
 // --- NOUVEAUX COMPTAGES POUR LES WIDGETS ---
@@ -252,6 +352,11 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
             font-size: 1rem;
             line-height: 1.5;
         }
+        
+        /* --- STYLE POUR BADGES MULTIPLES --- */
+        .nav-sidebar .nav-item .badge {
+            transition: margin 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -324,7 +429,7 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                                         <span class="badge badge-success right"><?php echo $menu_published_count; ?></span>
                                         
                                         <?php if ($menu_draft_count > 0): ?>
-                                        <span class="badge badge-warning right" style="margin-right: 0rem;"><?php echo $menu_draft_count; ?></span>
+                                        <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $menu_draft_count; ?></span>
                                         <?php endif; ?>
                                     </p>
                                 </a>
@@ -337,7 +442,7 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                                         <span class="badge badge-success right"><?php echo $widget_active_count; ?></span>
                                         
                                         <?php if ($widget_inactive_count > 0): ?>
-                                        <span class="badge badge-warning right" style="margin-right: 0rem;"><?php echo $widget_inactive_count; ?></span>
+                                        <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $widget_inactive_count; ?></span>
                                         <?php endif; ?>
                                     </p>
                                 </a>
@@ -347,18 +452,31 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
 
                     <?php
                     // --- GROUPE SITE ---
-                    $site_pages = ['settings.php', 'messages.php', 'read_message.php', 'users.php', 'add_user.php', 'newsletter.php'];
+                    $site_pages = ['settings.php', 'messages.php', 'read_message.php', 'users.php', 'add_user.php', 'newsletter.php', 'backup.php', 'maintenance.php', 'system-information.php', 'rss_imports.php'];
                     $is_site_open = in_array($current_page, $site_pages);
+                    
+                    // Badge total pour le groupe SITE (messages + maintenance)
+                    $total_site_alerts = $unread_messages_count + ($maintenance_status == 'On' ? 1 : 0);
                     ?>
                     <li class="nav-item <?php if ($is_site_open) echo 'menu-is-opening menu-open'; ?>">
                         <a href="#" class="nav-link <?php if ($is_site_open) echo 'active'; ?>">
                             <i class="nav-icon fas fa-cogs"></i>
                             <p>
                                 Site
-                                <i class="right fas fa-angle-left"></i>
+                                <?php if ($total_site_alerts > 0): ?>
+                                    <span class="badge badge-danger right"><?php echo $total_site_alerts; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
                             </p>
                         </a>
                         <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="system-information.php" class="nav-link <?php if ($current_page == 'system-information.php') echo 'active'; ?>">
+                                    <i class="nav-icon fas fa-server"></i>
+                                    <p>System Information</p>
+                                </a>
+                            </li>                            
                             <li class="nav-item">
                                 <a href="settings.php" class="nav-link <?php if ($current_page == 'settings.php') echo 'active'; ?>">
                                     <i class="nav-icon fas fa-cogs"></i>
@@ -368,21 +486,32 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                             <li class="nav-item">
                                 <a href="maintenance.php" class="nav-link <?php echo ($current_page == 'maintenance.php') ? 'active' : ''; ?>">
                                     <i class="nav-icon fas fa-tools"></i>
-                                    <p>Site Maintenance</p>
+                                    <p>
+                                        Site Maintenance
+                                        <?php if($maintenance_status == 'On'): ?>
+                                            <span class="badge badge-danger right">On</span>
+                                        <?php else: ?>
+                                            <span class="badge badge-success right">Off</span>
+                                        <?php endif; ?>
+                                    </p>
                                 </a>
                             </li>                            
                             <li class="nav-item">
                                 <a href="rss_imports.php" class="nav-link <?php echo ($current_page == 'rss_imports.php') ? 'active' : ''; ?>">
                                     <i class="nav-icon fas fa-rss"></i>
-                                    <p>Import RSS</p>
+                                    <p>Import RSS
+                                        <?php if($badge_rss_count > 0): ?>
+                                            <span class="badge badge-info right"><?php echo $badge_rss_count; ?></span>
+                                        <?php endif; ?>
+                                    </p>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a href="messages.php" class="nav-link <?php if (in_array($current_page, ['messages.php', 'read_message.php'])) echo 'active'; ?>">
                                     <i class="nav-icon fas fa-envelope"></i>
                                     <p>Messages
-                                        <?php if ($unread_messages > 0): ?>
-                                        <span class="badge badge-danger right"><?php echo $unread_messages; ?></span>
+                                        <?php if ($unread_messages_count > 0): ?>
+                                        <span class="badge badge-danger right"><?php echo $unread_messages_count; ?></span>
                                         <?php endif; ?>
                                     </p>
                                 </a>
@@ -399,6 +528,17 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                                     <p>Newsletter <span class="badge badge-info right"><?php echo $total_subscribers_count; ?></span></p>
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a href="backup.php" class="nav-link <?php if ($current_page == 'backup.php') echo 'active'; ?>">
+                                    <i class="nav-icon fas fa-database"></i>
+                                    <p>
+                                        Database Backup
+                                        <?php if ($badge_backup_count > 0): ?>
+                                            <span class="badge badge-info right"><?php echo $badge_backup_count; ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <?php endif; ?>
@@ -409,13 +549,20 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                     // --- GROUPE POSTS ---
                     $posts_pages = ['add_post.php', 'posts.php', 'categories.php', 'add_category.php', 'comments.php'];
                     $is_posts_open = in_array($current_page, $posts_pages);
+                    
+                    // Badge total pour le groupe BLOG (articles en attente + commentaires en attente)
+                    $total_blog_pending = $posts_pending_count + $pending_comments_count;
                     ?>
                     <li class="nav-item <?php if ($is_posts_open) echo 'menu-is-opening menu-open'; ?>">
                         <a href="#" class="nav-link <?php if ($is_posts_open) echo 'active'; ?>">
                             <i class="nav-icon fas fa-pen-square"></i>
                             <p>
                                 Blog
-                                <i class="right fas fa-angle-left"></i>
+                                <?php if ($total_blog_pending > 0 && $user['role'] == "Admin"): ?>
+                                    <span class="badge badge-warning right"><?php echo $total_blog_pending; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
                             </p>
                         </a>
                         <ul class="nav nav-treeview">
@@ -431,19 +578,23 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                                     <p>
                                         All Posts
                                         
-                                        <span class="badge badge-success right"><?php echo $posts_published_count; ?></span>
+                                        <?php 
+                                        $margin_right = 0;
+                                        if ($posts_pending_count > 0): ?>
+                                            <span class="badge badge-warning right" title="Pending"><?php echo $posts_pending_count; ?></span>
+                                        <?php 
+                                            $margin_right += 2.2;
+                                        endif; ?>
+                                        
+                                        <?php if ($posts_scheduled_count > 0): ?>
+                                            <span class="badge badge-info right" <?php if($margin_right > 0) echo 'style="margin-right: '.$margin_right.'rem;"'; ?> title="Scheduled"><?php echo $posts_scheduled_count; ?></span>
+                                        <?php 
+                                            $margin_right += 2.2;
+                                        endif; ?>
                                         
                                         <?php if ($posts_draft_count > 0): ?>
-                                        <span class="badge badge-warning right" style="margin-right: 0.8rem;"><?php echo $posts_draft_count; ?></span>
+                                            <span class="badge badge-secondary right" <?php if($margin_right > 0) echo 'style="margin-right: '.$margin_right.'rem;"'; ?> title="Drafts"><?php echo $posts_draft_count; ?></span>
                                         <?php endif; ?>
-                                        
-                                        <?php if ($posts_featured_count > 0): ?>
-                                        <span class="badge badge-danger right" style="margin-right: 4rem;"><?php echo $posts_featured_count; ?></span>
-                                        <?php endif; ?>
-
-                                        <?php if ($posts_scheduled_count > 0): ?>
-                                        <span class="badge badge-info right" style="margin-right: 5.8rem;"><?php echo $posts_scheduled_count; ?></span>
-                                        <?php endif; ?>                                        
                                     </p>
                                 </a>
                             </li>
@@ -473,20 +624,62 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                             <i class="nav-icon fas fa-window-maximize"></i>
                             <p>
                                 Popups
-                                <i class="right fas fa-angle-left"></i>
+                                <?php if($badge_popups_inactive > 0): ?>
+                                    <span class="badge badge-warning right"><?php echo $badge_popups_inactive; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
                             </p>
                         </a>
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
                                 <a href="popups.php" class="nav-link <?php echo ($current_page == 'popups.php') ? 'active' : ''; ?>">
                                     <i class="nav-icon fas fa-window-maximize"></i>
-                                    <p>All Popups</p>
+                                    <p>All Popups
+                                        <span class="badge badge-success right"><?php echo $badge_popups_active; ?></span>
+                                        <?php if ($badge_popups_inactive > 0): ?>
+                                            <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $badge_popups_inactive; ?></span>
+                                        <?php endif; ?>
+                                    </p>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a href="add_popup.php" class="nav-link <?php echo ($current_page == 'add_popup.php') ? 'active' : ''; ?>">
                                     <i class="nav-icon fas fa-plus-circle"></i>
                                     <p>Add Popup</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item <?php echo (in_array($current_page, ['mega_menus.php', 'add_mega_menu.php', 'edit_mega_menu.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['mega_menus.php', 'add_mega_menu.php', 'edit_mega_menu.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-columns"></i> <p>
+                                Mega Menus
+                                <?php if($badge_mega_menus_inactive > 0): ?>
+                                    <span class="badge badge-warning right"><?php echo $badge_mega_menus_inactive; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="mega_menus.php" class="nav-link <?php echo ($current_page == 'mega_menus.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list-ul"></i>
+                                    <p>
+                                        List All Menus
+                                        <span class="badge badge-success right"><?php echo $badge_mega_menus_active; ?></span>
+                                        <?php if ($badge_mega_menus_inactive > 0): ?>
+                                            <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $badge_mega_menus_inactive; ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_mega_menu.php" class="nav-link <?php echo ($current_page == 'add_mega_menu.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus-square"></i>
+                                    <p>Create New Menu</p>
                                 </a>
                             </li>
                         </ul>
@@ -516,7 +709,14 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                             <li class="nav-item">
                                 <a href="pages.php" class="nav-link <?php if (in_array($current_page, ['pages.php', 'add_page.php'])) echo 'active'; ?>">
                                     <i class="nav-icon fas fa-file-alt"></i>
-                                    <p>All Pages <span class="badge badge-info right"><?php echo $total_pages_count; ?></span></p>
+                                    <p>
+                                        All Pages
+                                        <span class="badge badge-success right"><?php echo $pages_published_count; ?></span>
+                                        
+                                        <?php if ($pages_draft_count > 0): ?>
+                                        <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $pages_draft_count; ?></span>
+                                        <?php endif; ?>
+                                    </p>
                                 </a>
                             </li>
                         </ul>
@@ -563,10 +763,176 @@ $posts_featured_count = mysqli_fetch_assoc($posts_featured_query)['count'];
                     <li class="nav-item">
                         <a href="files.php" class="nav-link <?php if (in_array($current_page, ['files.php', 'upload_file.php'])) echo 'active'; ?>">
                             <i class="nav-icon fas fa-folder-open"></i>
-                            <p>Files</p>
+                            <p>
+                                Files
+                                <span class="badge badge-info right"><?php echo $total_files_count; ?></span>
+                            </p>
                         </a>
                     </li>
+
+                    <li class="nav-item <?php echo (in_array($current_page, ['polls.php', 'add_poll.php', 'edit_poll.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['polls.php', 'add_poll.php', 'edit_poll.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-poll"></i> <p>
+                                Polls
+                                <?php if($badge_polls_inactive > 0): ?>
+                                    <span class="badge badge-warning right"><?php echo $badge_polls_inactive; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="polls.php" class="nav-link <?php echo ($current_page == 'polls.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list-ol"></i>
+                                    <p>List Polls
+                                        <span class="badge badge-success right"><?php echo $badge_polls_active; ?></span>
+                                        <?php if ($badge_polls_inactive > 0): ?>
+                                            <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $badge_polls_inactive; ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_poll.php" class="nav-link <?php echo ($current_page == 'add_poll.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus-circle"></i>
+                                    <p>Create Poll</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                     
+                    <li class="nav-item <?php echo (in_array($current_page, ['testimonials.php', 'add_testimonial.php', 'edit_testimonial.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['testimonials.php', 'add_testimonial.php', 'edit_testimonial.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-quote-left"></i>
+                            <p>
+                                Testimonials
+                                <?php if($count_testi_pending > 0): ?>
+                                    <span class="badge badge-warning right"><?php echo $count_testi_pending; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="testimonials.php" class="nav-link <?php echo ($current_page == 'testimonials.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list"></i>
+                                    <p>List All 
+                                        <?php if($count_testi_pending > 0): ?>
+                                            <span class="badge badge-warning right"><?php echo $count_testi_pending; ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_testimonial.php" class="nav-link <?php echo ($current_page == 'add_testimonial.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus"></i>
+                                    <p>Add New</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item <?php echo (in_array($current_page, ['faq.php', 'add_faq.php', 'edit_faq.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['faq.php', 'add_faq.php', 'edit_faq.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-question-circle"></i>
+                            <p>
+                                FAQ Manager
+                                <?php if($badge_faq_inactive > 0): ?>
+                                    <span class="badge badge-warning right"><?php echo $badge_faq_inactive; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="faq.php" class="nav-link <?php echo ($current_page == 'faq.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list-ul"></i>
+                                    <p>List Questions
+                                        <span class="badge badge-success right"><?php echo $badge_faq_active; ?></span>
+                                        <?php if ($badge_faq_inactive > 0): ?>
+                                            <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $badge_faq_inactive; ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                    </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_faq.php" class="nav-link <?php echo ($current_page == 'add_faq.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus"></i>
+                                    <p>Add Question</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item <?php echo (in_array($current_page, ['quizzes.php', 'add_quiz.php', 'edit_quiz.php', 'quiz_questions.php', 'add_question.php', 'edit_question.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['quizzes.php', 'add_quiz.php', 'edit_quiz.php', 'quiz_questions.php', 'add_question.php', 'edit_question.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-graduation-cap"></i>
+                            <p>
+                                Quiz Manager
+                                <?php if($badge_quiz_inactive > 0): ?>
+                                    <span class="badge badge-warning right"><?php echo $badge_quiz_inactive; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="quizzes.php" class="nav-link <?php echo (in_array($current_page, ['quizzes.php', 'add_quiz.php', 'edit_quiz.php'])) ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list-ul"></i>
+                                    <p>Gérer les Quiz
+                                        <span class="badge badge-success right"><?php echo $badge_quiz_active; ?></span>
+                                        <?php if ($badge_quiz_inactive > 0): ?>
+                                            <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $badge_quiz_inactive; ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                    </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_quiz.php" class="nav-link <?php echo ($current_page == 'add_quiz.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus"></i>
+                                    <p>Créer un Quiz</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item <?php echo (in_array($current_page, ['slides.php', 'add_slide.php', 'edit_slide.php'])) ? 'menu-is-opening menu-open' : ''; ?>">
+                        <a href="#" class="nav-link <?php echo (in_array($current_page, ['slides.php', 'add_slide.php', 'edit_slide.php'])) ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-images"></i>
+                            <p>
+                                Manage Slider
+                                <?php if($badge_slides_inactive > 0): ?>
+                                    <span class="badge badge-warning right"><?php echo $badge_slides_inactive; ?></span>
+                                <?php else: ?>
+                                    <i class="right fas fa-angle-left"></i>
+                                <?php endif; ?>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="slides.php" class="nav-link <?php echo ($current_page == 'slides.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-list"></i>
+                                    <p>List Slides
+                                        <span class="badge badge-success right"><?php echo $badge_slides_active; ?></span>
+                                        <?php if ($badge_slides_inactive > 0): ?>
+                                            <span class="badge badge-warning right" style="margin-right: 2.2rem;"><?php echo $badge_slides_inactive; ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="add_slide.php" class="nav-link <?php echo ($current_page == 'add_slide.php') ? 'active' : ''; ?>">
+                                    <i class="nav-icon fas fa-plus"></i>
+                                    <p>Add New Slide</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                 </ul>
             </nav>
             </div>

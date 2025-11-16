@@ -46,6 +46,7 @@ if (isset($_GET['delete-id'])) {
         </div>
     </div>
 </div>
+
 <section class="content">
     <div class="container-fluid">
 

@@ -1,6 +1,13 @@
 <?php
 include "header.php";
 
+// --- Variable de version ---
+// $phpblog_version = "x.x.x"; // Définie dans config.php
+
+// ------------------------------------------------------------
+// --- LOGIQUE DE LA PAGE DASHBOARD ---
+// ------------------------------------------------------------
+
 // --- LOGIQUE DE MODÉRATION RAPIDE (COMMENTAIRES) ---
 if ($user['role'] == "Admin") {
     
@@ -31,9 +38,14 @@ if ($user['role'] == "Admin") {
         echo '<meta http-equiv="refresh" content="0; url=dashboard.php">';
         exit;
     }
+    // --- FIN LOGIQUE DE MODÉRATION RAPIDE (COMMENTAIRES) ---
+}
 
-    // --- NOUVELLE LOGIQUE : MODÉRATION RAPIDE (ARTICLES) ---
-    
+// ------------------------------------------------------------
+// --- LOGIQUE : MODÉRATION RAPIDE (ARTICLES) ---
+// ------------------------------------------------------------
+
+if ($user['role'] == "Admin") {   
     // Gérer l'approbation d'un article
     if (isset($_GET['approve-post'])) {
         validate_csrf_token_get();
@@ -86,15 +98,52 @@ if ($user['role'] == "Admin") {
         echo '<meta http-equiv="refresh" content="0; url=dashboard.php">';
         exit;
     }
-    // --- FIN DE LA NOUVELLE LOGIQUE ---
+    // --- FIN LOGIQUE : MODÉRATION RAPIDE (ARTICLES) ---
 }
+
+// ------------------------------------------------------------
+// --- LOGIQUE : MODÉRATION RAPIDE (TÉMOIGNAGES) ---
+// ------------------------------------------------------------
+if ($user['role'] == "Admin") {
+    
+    // Gérer l'approbation
+    if (isset($_GET['approve-testimonial'])) {
+        validate_csrf_token_get();
+        $testi_id = (int)$_GET['approve-testimonial'];
+        
+        $stmt_approve_t = mysqli_prepare($connect, "UPDATE `testimonials` SET active='Yes' WHERE id=?");
+        mysqli_stmt_bind_param($stmt_approve_t, "i", $testi_id);
+        mysqli_stmt_execute($stmt_approve_t);
+        mysqli_stmt_close($stmt_approve_t);
+        
+        echo '<meta http-equiv="refresh" content="0; url=dashboard.php">'; 
+        exit;
+    }
+    
+    // Gérer la suppression
+    if (isset($_GET['delete-testimonial'])) {
+        validate_csrf_token_get();
+        $testi_id = (int)$_GET['delete-testimonial'];
+        
+        $stmt_delete_t = mysqli_prepare($connect, "DELETE FROM `testimonials` WHERE id=?");
+        mysqli_stmt_bind_param($stmt_delete_t, "i", $testi_id);
+        mysqli_stmt_execute($stmt_delete_t);
+        mysqli_stmt_close($stmt_delete_t);
+        
+        echo '<meta http-equiv="refresh" content="0; url=dashboard.php">';
+        exit;
+    }
+    // --- FIN LOGIQUE DE MODÉRATION RAPIDE (TÉMOIGNAGES) ---
+}
+
+// -----------------------------------
 // --- FIN DE LA LOGIQUE ---
+// -----------------------------------
 
 
-// Variable de version (comme dans core.php)
-$phpblog_version = "2.8.1"; 
-
+// ------------------------------------------------------------
 // --- REQUÊTES POUR LES STATISTIQUES EXPLOITABLES ---
+// ------------------------------------------------------------
 
 // 1. Cartes de statistiques
 $query_posts_published = mysqli_query($connect, "SELECT COUNT(id) AS count FROM posts WHERE active='Yes'");
@@ -126,6 +175,8 @@ if ($user['role'] == "Admin") {
 
 $query_total_users = mysqli_query($connect, "SELECT COUNT(id) AS count FROM users");
 $count_total_users = mysqli_fetch_assoc($query_total_users)['count'];
+$query_messages_total = mysqli_query($connect, "SELECT COUNT(id) AS count FROM messages");
+$count_messages_total = mysqli_fetch_assoc($query_messages_total)['count'];
 
 // 2. Graphique Top 5 Articles
 $query_top_posts = mysqli_query($connect, "SELECT title, views FROM posts WHERE active='Yes' AND views > 0 ORDER BY views DESC LIMIT 5");
@@ -177,10 +228,25 @@ $chart_cat_labels_json = json_encode($chart_cat_labels);
 $chart_cat_data_json = json_encode($chart_cat_data);
 
 // 5. Informations Système
-$php_version = phpversion();
+/*$php_version = phpversion();
 $db_version_query = mysqli_query($connect, "SELECT VERSION() as version");
 $db_version = mysqli_fetch_assoc($db_version_query)['version'];
 $max_upload = ini_get('upload_max_filesize');
+// Infos Serveur
+$server_domain = $_SERVER['SERVER_NAME'];
+// Utilise SERVER_ADDR si disponible, sinon tente un gethostbyname
+$server_ip = $_SERVER['SERVER_ADDR'] ?? gethostbyname($_SERVER['SERVER_NAME']); 
+$server_os = php_uname('s');
+$server_software = $_SERVER['SERVER_SOFTWARE'];
+$server_port = $_SERVER['SERVER_PORT'];
+// Infos PHP étendues
+$php_memory_limit = ini_get('memory_limit');
+$php_max_execution_time = ini_get('max_execution_time');
+// Vérifier les extensions requises (selon le README)
+$curl_status = extension_loaded('curl');
+$gd_status = extension_loaded('gd');
+$mbstring_status = extension_loaded('mbstring');
+*/
 
 // 6. Widget "Contenu en un coup d'œil"
 $query_pages_count = mysqli_query($connect, "SELECT COUNT(id) AS count FROM pages");
@@ -196,8 +262,7 @@ $query_tags_count = mysqli_query($connect, "SELECT COUNT(id) AS count FROM tags"
 $count_tags = mysqli_fetch_assoc($query_tags_count)['count'];
 
 // 7. "Derniers utilisateurs"
-$query_latest_users = mysqli_query($connect, "SELECT id, username, avatar, bio FROM users ORDER BY id DESC LIMIT 5");
-
+$query_latest_users = mysqli_query($connect, "SELECT id, username, avatar, bio, email, role, location FROM users ORDER BY id DESC LIMIT 5");
 // 8. Auteurs les plus actifs (Top 5)
 $query_top_authors = mysqli_query($connect, "
     SELECT u.username, COUNT(p.id) AS post_count
@@ -217,7 +282,7 @@ while ($row_author = mysqli_fetch_assoc($query_top_authors)) {
 $chart_authors_labels_json = json_encode($chart_authors_labels);
 $chart_authors_data_json = json_encode($chart_authors_data);
 
-// --- NOUVEL AJOUT : 9. Articles en attente ---
+// 9. Articles en attente ---
 if ($user['role'] == "Admin") {
     $query_pending_posts = mysqli_query($connect, "
         SELECT p.*, u.username AS author_name, u.avatar AS author_avatar
@@ -232,11 +297,52 @@ if ($user['role'] == "Admin") {
     $query_pending_posts = false;
     $posts_pending_count = 0;
 }
+
+// 10. compteur des modules ---
+$count_testi_pending = 0;
+$count_testi_total = 0;
+$count_polls_total = 0;
+$count_slides_total = 0;
+$count_faq_total = 0;
+
+// Témoignages
+$q_testi = mysqli_query($connect, "SELECT active, COUNT(id) as count FROM testimonials GROUP BY active");
+while ($r_testi = mysqli_fetch_assoc($q_testi)) {
+    if ($r_testi['active'] == 'Pending') $count_testi_pending = $r_testi['count'];
+    $count_testi_total += $r_testi['count'];
+}
+// Sondages
+$q_polls = mysqli_query($connect, "SELECT COUNT(id) as count FROM polls");
+$count_polls_total = mysqli_fetch_assoc($q_polls)['count'];
+// Slides
+$q_slides = mysqli_query($connect, "SELECT COUNT(id) as count FROM slides");
+$count_slides_total = mysqli_fetch_assoc($q_slides)['count'];
+// FAQ
+$q_faq = mysqli_query($connect, "SELECT COUNT(id) as count FROM faqs");
+$count_faq_total = mysqli_fetch_assoc($q_faq)['count'];
+
+
+// 11. Informations de Sauvegarde (Déplacé depuis le HTML)
+$backup_count = 0;
+$last_backup_date = 'Never';
+if ($user['role'] == "Admin") {
+    $backup_dir = '../backup-database/';
+    $backup_files = glob($backup_dir . "*.sql");
+    $backup_count = count($backup_files);
+
+    if ($backup_count > 0) {
+        // Trier pour trouver le plus récent
+        usort($backup_files, function($a, $b) { return filemtime($b) - filemtime($a); });
+        $last_backup_date = date("d M Y, H:i", filemtime($backup_files[0]));
+    }
+}
 // --- FIN AJOUT ---
 
+// ------------------------------------------------------------
 // --- FIN DES REQUÊTES ---
-
+// ------------------------------------------------------------
 ?>
+
 
 <div class="content-header">
     <div class="container-fluid">
@@ -248,7 +354,10 @@ if ($user['role'] == "Admin") {
                     <li class="breadcrumb-item"><a href="#">Home</a></li>
                     <li class="breadcrumb-item active">Dashboard</li>
                 </ol>
-            </div></div></div></div>
+            </div>
+        </div>
+    </div>
+</div>
 <section class="content">
     <div class="container-fluid">
         
@@ -275,53 +384,118 @@ if ($user['role'] == "Admin") {
         </div>
 
         <div class="row">
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box">
-                    <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Published Articles</span>
-                        <span class="info-box-number"><?php echo $count_posts_published; ?></span>
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="posts.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Published Articles</span>
+                            <span class="info-box-number"><?php echo $count_posts_published; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-pencil-alt"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Drafts</span>
-                        <span class="info-box-number"><?php echo $count_posts_drafts; ?></span>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="posts.php?status=draft" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-pencil-alt"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Drafts</span>
+                            <span class="info-box-number"><?php echo $count_posts_drafts; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
             
             <?php if ($user['role'] == "Admin"): ?>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-info elevation-1"><i class="fas fa-comments"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Pending Comments</span>
-                        <span class="info-box-number"><?php echo $count_comments_pending; ?></span>
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="comments.php?status=pending" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-comments"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Pending Comments</span>
+                            <span class="info-box-number"><?php echo $count_comments_pending; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-info elevation-1"><i class="fas fa-clock"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Pending Articles</span>
-                        <span class="info-box-number"><?php echo $count_posts_pending; ?></span>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="posts.php?status=pending" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-clock"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Pending Articles</span>
+                            <span class="info-box-number"><?php echo $count_posts_pending; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="info-box mb-3">
-                    <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-envelope"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Unread Messages</span>
-                        <span class="info-box-number"><?php echo $count_messages_unread; ?></span>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="messages.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-envelope"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Unread Messages</span>
+                            <span class="info-box-number"><?php echo $count_messages_unread; ?></span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="testimonials.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-star"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Testimonials</span>
+                            <span class="info-box-number"><?php echo $count_testi_total; ?> 
+                                <?php if($count_testi_pending > 0) echo "<small class='badge bg-danger'>{$count_testi_pending} new</small>"; ?>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="polls.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-purple elevation-1"><i class="fas fa-poll"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Total Polls</span>
+                            <span class="info-box-number"><?php echo $count_polls_total; ?></span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="slides.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-primary elevation-1"><i class="fas fa-images"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Total Slides</span>
+                            <span class="info-box-number"><?php echo $count_slides_total; ?></span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-12 col-sm-6 col-md-2">
+                <a href="faq.php" style="color: inherit; text-decoration: none;">
+                    <div class="info-box mb-3">
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-question-circle"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">FAQ</span>
+                            <span class="info-box-number"><?php echo $count_faq_total; ?></span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+        </div>
             <?php endif; ?>
         </div>
         
@@ -339,6 +513,25 @@ if ($user['role'] == "Admin") {
                         <?php endif; ?>
                     </div>
                 </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card card-purple">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-user-edit"></i> Top 5 Most Active Authors</h3>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($chart_authors_labels)): ?>
+                            <div class="alert alert-info">Not enough data to display a chart yet.</div>
+                        <?php else: ?>
+                            <canvas id="activeAuthorsChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
                 <div class="card card-primary">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-chart-line"></i> Publications (Last 12 Months)</h3>
@@ -352,22 +545,7 @@ if ($user['role'] == "Admin") {
                     </div>
                 </div>
             </div>
-            
             <div class="col-md-6">
-                
-                <div class="card card-purple">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-user-edit"></i> Top 5 Most Active Authors</h3>
-                    </div>
-                    <div class="card-body">
-                        <?php if (empty($chart_authors_labels)): ?>
-                            <div class="alert alert-info">Not enough data to display a chart yet.</div>
-                        <?php else: ?>
-                            <canvas id="activeAuthorsChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
                 <div class="card card-info">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-chart-pie"></i> Category Distribution</h3>
@@ -380,65 +558,139 @@ if ($user['role'] == "Admin") {
                         <?php endif; ?>
                     </div>
                 </div>
-                
-                <div class="card card-secondary">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-database"></i> Content at a Glance</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-6">
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="posts.php"><i class="fas fa-file-alt"></i> Items</a>
-                                        <span class="badge bg-success rounded-pill"><?php echo $count_posts_published; ?></span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="pages.php"><i class="fas fa-file-lines"></i> Pages</a>
-                                        <span class="badge bg-info rounded-pill"><?php echo $count_pages; ?></span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="categories.php"><i class="fas fa-list-ol"></i> Categories</a>
-                                        <span class="badge bg-warning rounded-pill"><?php echo $count_categories; ?></span>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div class="col-6">
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="comments.php"><i class="fas fa-comments"></i> Comments</a>
-                                        <span class="badge bg-danger rounded-pill"><?php echo $count_comments_total; ?></span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="posts.php"><i class="fas fa-tags"></i> Tags</a>
-                                        <span class="badge bg-secondary rounded-pill"><?php echo $count_tags; ?></span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                        <a href="users.php"><i class="fas fa-users"></i> Users</a>
-                                        <span class="badge bg-dark rounded-pill"><?php echo $count_total_users; ?></span>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                        <?php if ($user['role'] == "Admin"): ?>
-                        <hr class="my-2">
-                        <p class="card-text mb-0">
-                            <small class="text-muted">
-                                You have <span class="badge bg-warning text-dark"><?php echo $count_posts_drafts; ?></span> draft(s), 
-                                <a href="#moderation"><span class="badge bg-info"><?php echo $count_comments_pending; ?></span> comment(s)</a> and
-                                <a href="#moderation-posts"><span class="badge bg-info"><?php echo $count_posts_pending; ?></span> post(s)</a> pending.
-                            </small>
-                        </p>
-                        <?php endif; ?>
-                    </div>
-                </div>
             </div>
         </div>
 
         <div class="row">
             <div class="col-md-6">
                 <?php if ($user['role'] == "Admin"): ?>
-                <div class="card card-outline card-danger" id="moderation">
+
+                <div class="card card-warning">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-star"></i> Latest Pending Testimonials</h3>
+                    </div>
+                    <div class="card-body p-0" style="max-height: 400px; overflow-y: auto;">
+                        <ul class="products-list product-list-in-card pl-2 pr-2">
+                            <?php
+                            $q_t = mysqli_query($connect, "SELECT * FROM testimonials WHERE active='Pending' ORDER BY id DESC LIMIT 10");
+                            if(mysqli_num_rows($q_t) == 0):
+                                echo '<li class="item text-center text-muted p-3">No pending testimonials.</li>';
+                            else:
+                                while($row_t = mysqli_fetch_assoc($q_t)):
+                                    $avatar = !empty($row_t['avatar']) ? '../'.$row_t['avatar'] : '../assets/img/avatar.png';
+                            ?>
+                            <li class="item">
+                                <div class="product-img">
+                                    <img src="<?php echo $avatar; ?>" alt="Avatar" class="img-circle" style="width: 50px; height: 50px; object-fit: cover;">
+                                </div>
+                                <div class="product-info">
+                                    <span class="product-title">
+                                        <?php echo htmlspecialchars($row_t['name']); ?>
+                                        <small class="badge badge-secondary float-right"><?php echo date('d M Y', strtotime($row_t['created_at'])); ?></small>
+                                    </span>
+                                    <span class="product-description">
+                                        "<?php echo emoticons(htmlspecialchars(substr($row_t['content'], 0, 100))); ?>..."
+                                    </span>
+                                    <div class="mt-2">
+                                        <a href="?approve-testimonial=<?php echo $row_t['id']; ?>&token=<?php echo $_SESSION['csrf_token']; ?>" class="btn btn-xs btn-success"><i class="fas fa-check"></i> Approve</a>
+                                        <a href="?delete-testimonial=<?php echo $row_t['id']; ?>&token=<?php echo $_SESSION['csrf_token']; ?>" class="btn btn-xs btn-danger" onclick="return confirm('Delete?');"><i class="fas fa-trash"></i> Delete</a>
+                                        <a href="testimonials.php" class="btn btn-xs btn-default float-right">View All</a>
+                                    </div>
+                                </div>
+                            </li>
+                            <?php endwhile; endif; ?>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card card-primary">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-user-clock"></i> Latest Registered Users</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="products-list product-list-in-card pl-2 pr-2">
+                        <?php
+                        if (mysqli_num_rows($query_latest_users) == 0) {
+                            echo '<li class="list-group-item">No users found.</li>';
+                        } else {
+                            while ($row_user = mysqli_fetch_assoc($query_latest_users)) {
+                                
+                                // --- Logique Avatar (inchangée) ---
+                                $avatar_url_raw = $row_user['avatar'];
+                                $avatar_path = '';
+                                $auth_badge = '';
+                                
+                                if (strpos($avatar_url_raw, 'http://') === 0 || strpos($avatar_url_raw, 'https://') === 0) {
+                                    $avatar_path = htmlspecialchars($avatar_url_raw);
+                                    $auth_badge = '<span class="badge bg-danger" style="font-size: 0.7em;"><i class="fab fa-google"></i> Google</span>';
+                                } else {
+                                    $avatar_path = '../' . htmlspecialchars($avatar_url_raw);
+                                    $auth_badge = '<span class="badge bg-secondary" style="font-size: 0.7em;"><i class="fas fa-key"></i> Normal</span>';
+                                }
+                                
+                                // --- AJOUT : Logique pour le badge Rôle ---
+                                $role_badge = '';
+                                if ($row_user['role'] == 'Admin') {
+                                    $role_badge = '<span class="badge bg-success" style="font-size: 0.7em;"><i class="fas fa-user-shield"></i> Admin</span>';
+                                } elseif ($row_user['role'] == 'Editor') {
+                                    $role_badge = '<span class="badge bg-primary" style="font-size: 0.7em;"><i class="fas fa-user-edit"></i> Editor</span>';
+                                } else {
+                                    $role_badge = '<span class="badge bg-info" style="font-size: 0.7em;"><i class="fas fa-user"></i> User</span>';
+                                }
+                                // --- FIN AJOUT ---
+                        ?>
+                            <li class="item">
+                                <div class="product-img">
+                                    <img src="<?php echo $avatar_path; ?>" alt="Avatar" class="img-size-50 img-circle">
+                                </div>
+                                
+                                <div class="product-info">
+                                
+                                    <div class="float-right text-right">
+                                        <a href="users.php?edit-id=<?php echo $row_user['id']; ?>" class="btn btn-secondary btn-xs">
+                                            <i class="fa fa-edit"></i> Manage
+                                        </a>
+                                        <div class="mt-1">
+                                            <?php echo $auth_badge; ?>
+                                            <?php echo $role_badge; // ?>
+                                        </div>
+                                    </div>
+
+                                    <a href="users.php?edit-id=<?php echo $row_user['id']; ?>" class="product-title" style="padding-right: 70px;"> 
+                                        <?php echo htmlspecialchars($row_user['username']); ?>
+                                    </a>
+
+                                    <div class="product-description text-muted" style="font-size: 0.85em; margin-bottom: 2px; padding-right: 70px;">
+                                        <i class="fas fa-envelope fa-fw mr-1" title="Email"></i> <?php echo htmlspecialchars($row_user['email']); ?>
+                                        <?php if (!empty($row_user['location'])): ?>
+                                            <br><i class="fas fa-map-marker-alt fa-fw mr-1" title="Location"></i> <?php echo htmlspecialchars($row_user['location']); ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <span class="product-description text-muted" style="font-size: 0.85em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 70px;"> 
+                                        <?php
+                                        if (!empty($row_user['bio'])) {
+                                            $clean_bio = strip_tags(html_entity_decode($row_user['bio']));
+                                            echo '<i>' . htmlspecialchars(short_text($clean_bio, 60)) . '</i>'; // Limite à 60 caractères
+                                        } else {
+                                            echo '<i>No biography available.</i>';
+                                        }
+                                        ?>
+                                    </span>
+
+                                </div>
+                            </li>
+                        <?php
+                            }
+                        }
+                        ?>
+                        </ul>
+                    </div>
+                    <div class="card-footer text-center">
+                        <a href="users.php">View all users</a>
+                    </div>
+                </div>
+
+                <div class="card card-success" id="moderation">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-gavel"></i> Quick Moderation (Comments)</h3>
                     </div>
@@ -515,7 +767,7 @@ if ($user['role'] == "Admin") {
                     <?php endif; // End if ($cmnts_pending > 0) ?>
                 </div>
                 
-                <div class="card card-outline card-info" id="moderation-posts">
+                <div class="card card-info" id="moderation-posts">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-file-signature"></i> Quick Moderation (Posts)</h3>
                     </div>
@@ -576,6 +828,7 @@ if ($user['role'] == "Admin") {
                         </div>
                     <?php endif; ?>
                 </div>
+
                 <?php else: // Si c'est un Éditeur, afficher les commentaires récents ?>
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">Recent Comments</h3></div>
@@ -621,114 +874,207 @@ if ($user['role'] == "Admin") {
                         ?>
                     </div>
                 </div>
+
                 <?php endif; // Fin du if ($user['role'] == "Admin") ?>
             </div>
             
             <div class="col-md-6">
-                <div class="card card-outline card-info">
+
+                <div class="card card-secondary">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-database"></i> Content at a Glance</h3>
+                    </div>
+                    <div class="card-body">
+                        
+                        <div class="row">
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-success">
+                                    <div class="inner">
+                                        <h3><?php echo $count_posts_published; ?></h3>
+                                        <p>Articles Publiés</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-file-alt"></i></div>
+                                    <a href="<?php echo $posts_link_smart; ?>" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-info">
+                                    <div class="inner">
+                                        <h3><?php echo $count_pages; ?></h3>
+                                        <p>Pages</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-file-alt"></i></div>
+                                    <a href="pages.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-secondary">
+                                    <div class="inner">
+                                        <h3><?php echo $count_categories; ?></h3>
+                                        <p>Catégories</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-list-ol"></i></div>
+                                    <a href="categories.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-secondary">
+                                    <div class="inner">
+                                        <h3><?php echo $count_tags; ?></h3>
+                                        <p>Tags</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-tags"></i></div>
+                                    <a href="posts.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-3 col-6">
+                                <?php $comment_link = ($count_comments_pending > 0) ? "comments.php?status=pending" : "comments.php"; ?>
+                                <div class="small-box bg-danger">
+                                    <div class="inner">
+                                        <h3><?php echo $count_comments_total; ?></h3>
+                                        <p>Commentaires</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-comments"></i></div>
+                                    <a href="<?php echo $comment_link; ?>" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                             <div class="col-lg-3 col-6">
+                                <?php $testi_link = ($count_testi_pending > 0) ? "testimonials.php" : "testimonials.php"; ?>
+                                <div class="small-box bg-warning">
+                                    <div class="inner">
+                                        <h3><?php echo $count_testi_total; ?></h3>
+                                        <p>Témoignages</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-star"></i></div>
+                                    <a href="<?php echo $testi_link; ?>" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-danger">
+                                    <div class="inner">
+                                        <h3><?php echo $count_messages_total; ?></h3>
+                                        <p>Messages</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-envelope"></i></div>
+                                    <a href="messages.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-dark">
+                                    <div class="inner">
+                                        <h3><?php echo $count_total_users; ?></h3>
+                                        <p>Utilisateurs</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-users"></i></div>
+                                    <a href="users.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                             <div class="col-lg-3 col-6">
+                                <div class="small-box bg-purple">
+                                    <div class="inner">
+                                        <h3><?php echo $count_polls_total; ?></h3>
+                                        <p>Sondages</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-poll"></i></div>
+                                    <a href="polls.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-primary">
+                                    <div class="inner">
+                                        <h3><?php echo $count_slides_total; ?></h3>
+                                        <p>Slider</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-images"></i></div>
+                                    <a href="slides.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-info">
+                                    <div class="inner">
+                                        <h3><?php echo $count_faq_total; ?></h3>
+                                        <p>FAQ</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-question-circle"></i></div>
+                                    <a href="faq.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-6">
+                                <div class="small-box bg-primary">
+                                    <div class="inner">
+                                        <h3><?php echo $backup_count; ?></h3>
+                                        <p>Sauvegardes BDD</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-database"></i></div>
+                                    <a href="backup.php" class="small-box-footer">Gérer <i class="fas fa-arrow-circle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <?php if ($user['role'] == "Admin"): ?>
+                        <hr class="my-2">
+                        <p class="card-text mb-0">
+                            <small class="text-muted">
+                                You have <span class="badge bg-warning text-dark"><?php echo $count_posts_drafts; ?></span> draft(s), 
+                                <a href="#moderation"><span class="badge bg-info"><?php echo $count_comments_pending; ?></span> comment(s)</a> and
+                                <a href="#moderation-posts"><span class="badge bg-info"><?php echo $count_posts_pending; ?></span> post(s)</a> pending.
+                            </small>
+                        </p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- div class="card card-outline card-info">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-server"></i> System Information</h3>
                     </div>
-                    <div class="card-body p-0">
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                phpBlog Version
-                                <span class="badge bg-primary rounded-pill"><?php echo $phpblog_version; ?></span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Active Theme
-                                <span class="badge bg-secondary"><?php echo htmlspecialchars($settings['theme']); ?></span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                PHP Version
-                                <span class="badge bg-info"><?php echo $php_version; ?></span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                MySQL Version
-                                <span class="badge bg-info"><?php echo short_text($db_version, 15); ?></span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Max Upload Size
-                                <span class="badge bg-warning text-dark"><?php echo $max_upload; ?></span>
-                            </li>
-                        </ul>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                                        Server Domain
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                                        phpBlog Version
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div -->
+                
+                <?php if ($user['role'] == "Admin"): ?>
+                <div class="card card-secondary">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-shield-alt"></i> System Health</h3>
+                    </div>
+                    <div class="card-body">
+                        <strong>Database Backups</strong>
+                        <p class="text-muted">
+                            Total files: <span class="badge bg-primary"><?php echo $backup_count; ?></span><br>
+                            Last backup: <span class="text-<?php echo ($last_backup_date == 'Never' ? 'danger' : 'success'); ?>"><?php echo $last_backup_date; ?></span>
+                        </p>
+                        <a href="backup.php" class="btn btn-sm btn-primary"><i class="fas fa-download"></i> Manage Backups</a>
                     </div>
                 </div>
                 
-                <?php if ($user['role'] == "Admin"): ?>
-                <div class="card card-outline card-warning">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-user-clock"></i> Latest Registered Users</h3>
-                    </div>
-                    <div class="card-body p-0">
-                        <ul class="products-list product-list-in-card pl-2 pr-2">
-                        <?php
-                        if (mysqli_num_rows($query_latest_users) == 0) {
-                            echo '<li class="list-group-item">No users found.</li>';
-                        } else {
-                            while ($row_user = mysqli_fetch_assoc($query_latest_users)) {
-                                
-                                // --- DÉBUT DE LA MODIFICATION (AVATAR, BADGE, BIO) ---
-                                $avatar_url_raw = $row_user['avatar'];
-                                $avatar_path = '';
-                                $auth_badge = '';
-                                
-                                if (strpos($avatar_url_raw, 'http://') === 0 || strpos($avatar_url_raw, 'https://') === 0) {
-                                    $avatar_path = htmlspecialchars($avatar_url_raw);
-                                    $auth_badge = '<span class="badge bg-danger" style="font-size: 0.7em;"><i class="fab fa-google"></i> Google</span>';
-                                } else {
-                                    $avatar_path = '../' . htmlspecialchars($avatar_url_raw);
-                                    $auth_badge = '<span class="badge bg-secondary" style="font-size: 0.7em;"><i class="fas fa-key"></i> Normal</span>';
-                                }
-                                // --- FIN DE LA MODIFICATION (AVATAR, BADGE) ---
-                        ?>
-                            <li class="item">
-                                <div class="product-img">
-                                    <img src="<?php echo $avatar_path; ?>" alt="Avatar" class="img-size-50 img-circle">
-                                </div>
-                                
-                                <div class="product-info">
-                                
-                                    <div class="float-right text-right">
-                                        <a href="users.php?edit-id=<?php echo $row_user['id']; ?>" class="btn btn-secondary btn-xs">
-                                            <i class="fa fa-edit"></i> Manage
-                                        </a>
-                                        <div class="mt-1">
-                                            <?php echo $auth_badge; ?>
-                                        </div>
-                                    </div>
 
-                                    <a href="users.php?edit-id=<?php echo $row_user['id']; ?>" class="product-title" style="padding-right: 70px;"> <?php echo htmlspecialchars($row_user['username']); ?>
-                                    </a>
-
-                                    <span class="product-description text-muted" style="font-size: 0.85em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 70px;"> <?php
-                                        if (!empty($row_user['bio'])) {
-                                            // Nettoyer le HTML, puis tronquer
-                                            $clean_bio = strip_tags(html_entity_decode($row_user['bio']));
-                                            echo htmlspecialchars(short_text($clean_bio, 60)); // Limite à 60 caractères
-                                        } else {
-                                            echo '<i>No biography available.</i>';
-                                        }
-                                        ?>
-                                    </span>
-
-                                </div>
-                            </li>
-                        <?php
-                            }
-                        }
-                        ?>
-                        </ul>
-                    </div>
-                    <div class="card-footer text-center">
-                        <a href="users.php">View all users</a>
-                    </div>
-                </div>
                 <?php endif; ?>
             </div>
         </div>
+</section>
 
-    </div></section>
 <script>
 document.addEventListener('DOMContentLoaded', (event) => {
     
@@ -867,6 +1213,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
 });
 </script>
 
-<?php
+ <?php
 include "footer.php";
 ?>
