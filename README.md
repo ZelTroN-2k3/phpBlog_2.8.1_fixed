@@ -235,7 +235,7 @@ ALTER TABLE `settings`
 ADD COLUMN `homepage_slider` ENUM('Featured', 'Custom') NOT NULL DEFAULT 'Featured' COMMENT 'Choix entre articles (Featured) ou slider perso (Custom)';
 ```
 
-**NOUVEAU : Instructions de mise à jour (Post-v2.9.4) pour le Gestionnaire de Quiz Avancé**
+**NOUVEAU : Instructions de mise à jour (Post-v2.9.5) pour le Gestionnaire de Quiz Avancé**
 *(Si vous aviez l'ancienne table `faqs`, vous pouvez la supprimer)*
 
 ```sql
