@@ -1,3 +1,7 @@
+--
+-- Base de données : `DROPOUT IF EXISTS`
+--
+
 DROP TABLE IF EXISTS `settings`;
 DROP TABLE IF EXISTS `albums`;
 DROP TABLE IF EXISTS `categories`;
@@ -17,6 +21,17 @@ DROP TABLE IF EXISTS `post_likes`;
 DROP TABLE IF EXISTS `user_favorites`;
 DROP TABLE IF EXISTS `rss_imports`;
 DROP TABLE IF EXISTS `popups`;
+DROP TABLE IF EXISTS `mega_menus`;
+DROP TABLE IF EXISTS `polls`;
+DROP TABLE IF EXISTS `poll_options`;
+DROP TABLE IF EXISTS `poll_voters`;
+DROP TABLE IF EXISTS `testimonials`;
+DROP TABLE IF EXISTS `faqs`;
+DROP TABLE IF EXISTS `slides`;
+DROP TABLE IF EXISTS `quizzes`;
+DROP TABLE IF EXISTS `quiz_questions`;
+DROP TABLE IF EXISTS `quiz_options`;
+
 --
 -- Base de données : `localhost`
 --
@@ -27,7 +42,7 @@ DROP TABLE IF EXISTS `popups`;
 -- Structure de la table `settings` 
 --
 CREATE TABLE `settings` (
-  `id` int(11) NOT NULL DEFAULT 1,
+  `id` int(11) NOT NULL DEFAULT '1',
   `site_url` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `sitename` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `description` text COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -60,14 +75,16 @@ CREATE TABLE `settings` (
   `sticky_header` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Off',
   `maintenance_mode` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Off',
   `maintenance_title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `maintenance_message` LONGTEXT COLLATE utf8mb4_unicode_ci NULL
+  `maintenance_message` longtext COLLATE utf8mb4_unicode_ci,
+  `homepage_slider` enum('Featured','Custom') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Featured' COMMENT 'Choix entre articles (Featured) ou slider perso (Custom)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 --
 -- Déchargement des données de la table `settings`
 --
-INSERT INTO `settings` (`id`, `site_url`, `sitename`, `description`, `email`, `gcaptcha_sitekey`, `gcaptcha_secretkey`, `head_customcode`, `head_customcode_enabled`, `facebook`, `instagram`, `twitter`, `youtube`, `linkedin`, `comments`, `rtl`, `date_format`, `layout`, `latestposts_bar`, `sidebar_position`, `posts_per_row`, `theme`, `background_image`, `posts_per_page`, `meta_title`, `favicon_url`, `apple_touch_icon_url`, `meta_author`, `meta_generator`, `meta_robots`, `sticky_header`, `maintenance_mode`, `maintenance_title`, `maintenance_message`) VALUES
-(1, '', 'phpBlog', 'phpBlog Content Management System', '', '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI', '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe', 'IDwhLS0gR29vZ2xlIEFuYWx5dGljcyA0IChHQTQpIFRyYWNraW5nIENvZGUgLS0+DQogPHNjcmlwdCBhc3luYyBzcmM9Imh0dHBzOi8vd3d3Lmdvb2dsZXRhZ21hbmFnZXIuY29tL2d0YWcvanM/aWQ9Ry1YWFhYWFhYWFhYIj48L3NjcmlwdD4NCiA8c2NyaXB0Pg0KICAgd2luZG93LmRhdGFMYXllciA9IHdpbmRvdy5kYXRhTGF5ZXIgfHwgW107DQogICBmdW5jdGlvbiBndGFnKCl7ZGF0YUxheWVyLnB1c2goYXJndW1lbnRzKTt9DQogICBndGFnKCdqcycsIG5ldyBEYXRlKCkpOw0KICAgZ3RhZygnY29uZmlnJywgJ0ctWFhYWFhYWFhYWCcpOw0KIDwvc2NyaXB0Pg0KPCEtLSBSZXN0IG9mIHlvdXIgaGVhZCBjb250ZW50IC0tPg==', 'Off', '', '', '', '', '', 'guests', 'No', 'd.m.Y', 'Fixed', 'Enabled', 'Right', '3', 'Bootstrap 5', '', '4', 'phpBlog - Titre SEO', 'assets/img/favicon.png', 'assets/img/favicon.png', 'Antonov_WEB', 'phpBlog', 'index, follow, all', 'Off', 'Off', 'Site Under Maintenance', '<p>Our website is currently undergoing maintenance. We apologize for the inconvenience. We will be back soon!</p>');
+INSERT INTO `settings` (`id`, `site_url`, `sitename`, `description`, `email`, `gcaptcha_sitekey`, `gcaptcha_secretkey`, `head_customcode`, `head_customcode_enabled`, `facebook`, `instagram`, `twitter`, `youtube`, `linkedin`, `comments`, `rtl`, `date_format`, `layout`, `latestposts_bar`, `sidebar_position`, `posts_per_row`, `theme`, `background_image`, `posts_per_page`, `meta_title`, `favicon_url`, `apple_touch_icon_url`, `meta_author`, `meta_generator`, `meta_robots`, `sticky_header`, `maintenance_mode`, `maintenance_title`, `maintenance_message`, `homepage_slider`) VALUES
+(1, '', 'phpBlog', 'phpBlog Content Management System', '', '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI', '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe', 'IDwhLS0gR29vZ2xlIEFuYWx5dGljcyA0IChHQTQpIFRyYWNraW5nIENvZGUgLS0+DQogPHNjcmlwdCBhc3luYyBzcmM9Imh0dHBzOi8vd3d3Lmdvb2dsZXRhZ21hbmFnZXIuY29tL2d0YWcvanM/aWQ9Ry1YWFhYWFhYWFhYIj48L3NjcmlwdD4NCiA8c2NyaXB0Pg0KICAgd2luZG93LmRhdGFMYXllciA9IHdpbmRvdy5kYXRhTGF5ZXIgfHwgW107DQogICBmdW5jdGlvbiBndGFnKCl7ZGF0YUxheWVyLnB1c2goYXJndW1lbnRzKTt9DQogICBndGFnKCdqcycsIG5ldyBEYXRlKCkpOw0KICAgZ3RhZygnY29uZmlnJywgJ0ctWFhYWFhYWFhYWCcpOw0KIDwvc2NyaXB0Pg0KPCEtLSBSZXN0IG9mIHlvdXIgaGVhZCBjb250ZW50IC0tPg==', 'Off', '', '', '', '', '', 'guests', 'No', 'd.m.Y', 'Fixed', 'Enabled', 'Right', '3', 'Bootstrap 5', '', '4', 'phpBlog - Titre SEO', 'assets/img/favicon.png', 'assets/img/favicon.png', 'Antonov_WEB', 'phpBlog', 'index, follow, all', 'Off', 'Off', 'Site Under Maintenance', '<p>Our website is currently undergoing maintenance. We apologize for the inconvenience. We will be back soon!</p>', 'Featured');
 -- --------------------------------------------------------
 
 --
@@ -164,7 +181,9 @@ INSERT INTO `menu` (`id`, `page`, `path`, `fa_icon`, `active`) VALUES
 (2, 'About', 'page?name=about', 'fa-info-circle', 'Yes'),
 (3, 'Gallery', 'gallery', 'fa-images', 'Yes'),
 (4, 'Posts', 'blog', 'fa-list', 'Yes'),
-(5, 'Contact', 'contact', 'fa-envelope', 'Yes');
+(5, 'Contact', 'contact', 'fa-envelope', 'Yes'),
+(6, 'FAQ', 'faq', 'fa-question-circle', 'Yes'),
+(7, 'Quiz', 'quiz', 'fas fa-graduation-cap', 'Yes');
 
 -- --------------------------------------------------------
 
@@ -334,7 +353,9 @@ CREATE TABLE IF NOT EXISTS `user_favorites` (
 CREATE TABLE IF NOT EXISTS `widgets` (
   `id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
-  `content` mediumtext NOT NULL,
+  `widget_type` varchar(50) NOT NULL DEFAULT 'html',
+  `content` mediumtext NULL,
+  `config_data` text DEFAULT NULL,
   `position` varchar(10) NOT NULL DEFAULT 'Sidebar',
   `active` varchar(3) NOT NULL DEFAULT 'Yes'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -342,8 +363,186 @@ CREATE TABLE IF NOT EXISTS `widgets` (
 --
 -- Déchargement des données de la table `widgets`
 --
-INSERT INTO `widgets` (`id`, `title`, `content`, `position`, `active`) VALUES
-(1, 'Text Widget', '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam ornare sem tempor massa volutpat, quis varius urna placerat. Aliquam erat volutpat. Suspendisse lorem odio, imperdiet ut elit vitae, dignissim pretium odio. </p>\r\n', 'Sidebar', 'Yes');
+INSERT INTO `widgets` (`id`, `title`, `widget_type`, `content`, `config_data`, `position`, `active`) VALUES
+(1, 'Text Widget', 'html', '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam ornare sem tempor massa volutpat, quis varius urna placerat. Aliquam erat volutpat. Suspendisse lorem odio, imperdiet ut elit vitae, dignissim pretium odio. </p>\r\n', NULL, 'Sidebar', 'Yes');
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `mega_menus`
+--
+CREATE TABLE `mega_menus` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL COMMENT 'Nom interne pour l administration',
+  `trigger_text` varchar(255) NOT NULL COMMENT 'Texte affiché dans la barre de menu',
+  `trigger_icon` varchar(50) NOT NULL DEFAULT 'fa-bars' COMMENT 'Icône FontAwesome',
+  `trigger_link` varchar(255) NOT NULL DEFAULT '#' COMMENT 'Lien au clic sur le parent',
+  `col_1_title` varchar(255) DEFAULT 'Explore',
+  `col_1_content` LONGTEXT COMMENT 'Contenu HTML ou Liens',
+  `col_2_title` varchar(255) DEFAULT 'Categories',
+  `col_2_type` enum('categories','custom','none') NOT NULL DEFAULT 'categories',
+  `col_2_content` LONGTEXT COMMENT 'Si type custom',
+  `col_3_title` varchar(255) DEFAULT 'Newest',
+  `col_3_type` enum('latest_posts','custom','none') NOT NULL DEFAULT 'latest_posts',
+  `col_3_content` LONGTEXT COMMENT 'Si type custom',
+  `position_order` int(11) NOT NULL DEFAULT 0,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------
+
+--
+-- Structure de la table `polls`
+--
+CREATE TABLE `polls` (
+  `id` int(11) NOT NULL,
+  `question` varchar(255) NOT NULL,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Structure de la table `poll_options`
+--
+CREATE TABLE `poll_options` (
+  `id` int(11) NOT NULL,
+  `poll_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `votes` int(11) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Structure de la table `poll_voters`
+--
+CREATE TABLE `poll_voters` (
+  `id` int(11) NOT NULL,
+  `poll_id` int(11) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `voted_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------
+
+--
+-- Structure de la table `faqs`
+--
+CREATE TABLE `faqs` (
+  `id` int(11) NOT NULL,
+  `question` varchar(255) NOT NULL,
+  `answer` LONGTEXT NOT NULL,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `position_order` int(11) NOT NULL DEFAULT '0',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------
+
+--
+-- Structure de la table `testimonials`
+--
+CREATE TABLE `testimonials` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `position` varchar(255) DEFAULT NULL COMMENT 'Ex: CEO of TechCorp',
+  `content` TEXT NOT NULL,
+  `avatar` varchar(255) DEFAULT NULL,
+  `active` enum('Yes','No','Pending') NOT NULL DEFAULT 'Pending',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------
+
+--
+-- Structure de la table `slides`
+--
+CREATE TABLE `slides` (
+  `id` int(11) NOT NULL,
+  `title` varchar(255) DEFAULT NULL,
+  `description` TEXT DEFAULT NULL,
+  `image_url` varchar(255) NOT NULL,
+  `link_url` varchar(255) DEFAULT '#',
+  `position_order` int(11) NOT NULL DEFAULT 0,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------
+
+--
+-- Structure de la table `quizzes`
+--
+CREATE TABLE `quizzes` (
+  `id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` TEXT NULL,
+  `image` varchar(255) NULL,
+  `difficulty` ENUM('FACILE','NORMAL','DIFFICILE','EXPERT') NOT NULL DEFAULT 'NORMAL',
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Structure de la table `quiz_questions`
+--
+CREATE TABLE `quiz_questions` (
+  `id` int(11) NOT NULL,
+  `quiz_id` int(11) DEFAULT NULL,
+  `question` varchar(255) NOT NULL,
+  `explanation` LONGTEXT NULL,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes',
+  `position_order` int(11) NOT NULL DEFAULT '0',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `quiz_id` (`quiz_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Structure de la table `quiz_options`
+--
+CREATE TABLE `quiz_options` (
+  `id` int(11) NOT NULL,
+  `question_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `is_correct` enum('Yes','No') NOT NULL DEFAULT 'No',
+  PRIMARY KEY (`id`),
+  KEY `question_id` (`question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Structure de la table `quiz_attempts`
+--
+CREATE TABLE `quiz_attempts` (
+  `id` int(11) NOT NULL,
+  `quiz_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `score` int(11) NOT NULL COMMENT 'Score en pourcentage (ex: 80)',
+  `time_seconds` int(11) NOT NULL COMMENT 'Temps total en secondes',
+  `attempt_date` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `footer_pages`
+--
+CREATE TABLE `footer_pages` (
+  `id` int(11) NOT NULL,
+  `page_key` varchar(50) NOT NULL COMMENT 'Clé unique (ex: legal, contact)',
+  `title` varchar(255) NOT NULL,
+  `content` LONGTEXT NULL,
+  `active` enum('Yes','No') NOT NULL DEFAULT 'Yes'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Déchargement des données de la table `footer_pages`
+--
+INSERT INTO `footer_pages` (`id`, `page_key`, `title`, `content`, `active`) VALUES
+(1, 'legal', 'Informations Légales', '<p>Veuillez rédiger vos informations légales ici...</p>', 'Yes'),
+(2, 'contact_methods', 'Moyens de Contact', '<p>Veuillez rédiger vos moyens de contact ici...</p>', 'Yes'),
+(3, 'most_viewed', 'Pages les plus Consultées', '<p>Rédigez ici un texte ou des liens vers vos pages populaires...</p>', 'No'),
+(4, 'cta_buttons', 'Call-to-Action', '<p>Rédigez ici vos boutons d''action (ex: Newsletter, Contact)...</p>', 'No'),
+(5, 'trust_badges', 'Gages de Confiance', '<p>Insérez ici vos images de gages de confiance...</p>', 'No');
 
 -- --------------------------------------------------------
 
@@ -373,7 +572,9 @@ ALTER TABLE `categories`
 -- Index pour la table `comments`
 --
 ALTER TABLE `comments`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `post_id` (`post_id`),
+  ADD KEY `parent_id` (`parent_id`);
 
 --
 -- Index pour la table `files`
@@ -409,13 +610,15 @@ ALTER TABLE `newsletter`
 -- Index pour la table `pages`
 --
 ALTER TABLE `pages`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `slug` (`slug`);
 
 --
 -- Index pour la table `posts` 
 --
 ALTER TABLE `posts`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `slug` (`slug`),
   ADD UNIQUE KEY `imported_guid_unique` (`imported_guid`);
 
 --
@@ -458,7 +661,9 @@ ALTER TABLE `tags`
 -- Index pour la table `users`
 --
 ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `username` (`username`),
+  ADD UNIQUE KEY `email` (`email`);
 
 --
 -- Index pour la table `user_favorites`
@@ -476,8 +681,87 @@ ALTER TABLE `widgets`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Index pour la table `mega_menus`
+--
+ALTER TABLE `mega_menus`
+  ADD PRIMARY KEY (`id`);
+  
+--
+-- Index pour la table `polls`
+--
+ALTER TABLE `polls`
+  ADD PRIMARY KEY (`id`);
+  
+--
+-- Index pour la table `poll_options`
+--
+ALTER TABLE `poll_options`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `poll_id` (`poll_id`);
+  
+--
+-- Index pour la table `poll_voters`
+--
+ALTER TABLE `poll_voters`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `poll_ip` (`poll_id`, `ip_address`);
+  
+--
+-- Index pour la table `faqs`
+--
+ALTER TABLE `faqs`
+  ADD PRIMARY KEY (`id`);
+  
+--
+-- Index pour la table `testimonials`
+--
+ALTER TABLE `testimonials`
+  ADD PRIMARY KEY (`id`);
+  
+--
+-- Index pour la table `slides`
+--
+ALTER TABLE `slides`
+  ADD PRIMARY KEY (`id`);
+  
+--
+-- Index pour la table `quizzes`
+--
+ALTER TABLE `quizzes`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Index pour la table `quiz_questions`
+--
+-- (La clé primaire et la clé 'quiz_id' sont déjà définies dans CREATE TABLE)
+--
+
+--
+-- Index pour la table `quiz_options`
+--
+-- (La clé primaire et la clé 'question_id' sont déjà définies dans CREATE TABLE)
+--
+
+--
+-- Index pour la table `quiz_attempts`
+--
+ALTER TABLE `quiz_attempts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `quiz_id` (`quiz_id`),
+  ADD KEY `user_id` (`user_id`);
+
+--
+-- Index pour la table `footer_pages`
+--
+ALTER TABLE `footer_pages`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `page_key` (`page_key`);
+
+-- ------------------------------------------------------------    
+--
 -- AUTO_INCREMENT pour les tables déchargées
 --
+-- ------------------------------------------------------------    
 
 --
 -- AUTO_INCREMENT pour la table `albums`
@@ -513,7 +797,7 @@ ALTER TABLE `gallery`
 -- AUTO_INCREMENT pour la table `menu`
 --
 ALTER TABLE `menu`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT pour la table `messages`
@@ -575,8 +859,6 @@ ALTER TABLE `tags`
 ALTER TABLE `users`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
--- HIGH_PERF:
-
 --
 -- AUTO_INCREMENT pour la table `user_favorites`
 --
@@ -588,4 +870,77 @@ ALTER TABLE `user_favorites`
 --
 ALTER TABLE `widgets`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  
+--
+-- AUTO_INCREMENT pour la table `mega_menus`
+--
+ALTER TABLE `mega_menus`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  
+--
+-- AUTO_INCREMENT pour la table `polls`
+--
+ALTER TABLE `polls`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  
+--
+-- AUTO_INCREMENT pour la table `poll_options`
+--
+ALTER TABLE `poll_options`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  
+--
+-- AUTO_INCREMENT pour la table `poll_voters`
+--
+ALTER TABLE `poll_voters`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  
+--
+-- AUTO_INCREMENT pour la table `faqs`
+--
+ALTER TABLE `faqs`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  
+--
+-- AUTO_INCREMENT pour la table `testimonials`
+--
+ALTER TABLE `testimonials`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT pour la table `slides`
+--
+ALTER TABLE `slides`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  
+--
+-- AUTO_INCREMENT pour la table `quizzes`
+--
+ALTER TABLE `quizzes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT pour la table `quiz_questions`
+--
+ALTER TABLE `quiz_questions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT pour la table `quiz_options`
+--
+ALTER TABLE `quiz_options`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  
+--
+-- AUTO_INCREMENT pour la table `quiz_attempts`
+--
+ALTER TABLE `quiz_attempts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT pour la table `footer_pages`
+--
+ALTER TABLE `footer_pages`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
 COMMIT;
