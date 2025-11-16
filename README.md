@@ -1,6 +1,6 @@
 -----
 
-# phpBlog v2.9.5 (Édition Complète)
+# phpBlog v2.9.6 (Édition Complète)
 
 phpBlog - News, Blog & Magazine CMS
 
