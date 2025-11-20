@@ -60,17 +60,26 @@ if (isset($_POST['add'])) {
             // --- MODIFICATION ---
             $string     = "0123456789wsderfgtyhjuk";
             $new_string = str_shuffle($string);
-            // Chemin de destination SANS extension
-            $destination_path = "../uploads/posts/image_$new_string"; 
             
-            // Appeler la nouvelle fonction d'optimisation
-            $optimized_path = optimize_and_save_image($_FILES["image"]["tmp_name"], $destination_path);
+            // 1. Définir le dossier physique (où on écrit)
+            $upload_dir = "../uploads/posts/";
+            // 2. Définir le chemin relatif (pour la BDD)
+            $db_path_base = "uploads/posts/image_$new_string";
             
-            if ($optimized_path) {
-                // Enlever le préfixe '../' pour le stockage en BDD
-                $image = str_replace('../', '', $optimized_path); 
+            // Chemin complet sans extension pour la fonction d'optimisation
+            $destination_path_no_ext = $upload_dir . "image_$new_string";
+
+            // Appeler la fonction d'optimisation
+            // Elle va ajouter l'extension .jpg et retourner le chemin complet (ex: ../uploads/posts/image_xyz.jpg)
+            $optimized_full_path = optimize_and_save_image($_FILES["image"]["tmp_name"], $destination_path_no_ext);
+            
+            if ($optimized_full_path) {
+                // Pour la BDD, on veut juste 'uploads/posts/image_xyz.jpg'
+                // On nettoie le chemin retourné en enlevant les '../' du début
+                $image = ltrim($optimized_full_path, './'); 
+                $image = str_replace('../', '', $image);
             } else {
-                $uploadOk = 0; // Marquer comme échec si l'optimisation rate
+                $uploadOk = 0; 
                 echo '<div class="alert alert-danger">An error occurred while processing the image.</div>';
             }
             // --- FIN MODIFICATION ---

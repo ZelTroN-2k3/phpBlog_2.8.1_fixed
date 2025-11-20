@@ -13,18 +13,53 @@ if ($current_status != 'all') {
 }
 // --- FIN LOGIQUE ---
 
+// --- NOUVELLE LOGIQUE DE SAUVEGARDE (Étape 1) ---
 if (isset($_POST['add'])) {
     
     validate_csrf_token();
 
-    $title    = $_POST['title'];
-    $content  = $_POST['content'];
-    $position = $_POST['position'];
-    $active   = $_POST['active']; // ✨ NOUVEAU CHAMP
+    // Champs communs
+    $title       = $_POST['title'];
+    $position    = $_POST['position'];
+    $active      = $_POST['active'];
+    $widget_type = $_POST['widget_type']; // Le type de widget (caché dans le formulaire)
 
-    // ✨ MODIFIÉ : Ajout de 'active' à la requête
-    $stmt = mysqli_prepare($connect, "INSERT INTO widgets (title, content, position, active) VALUES (?, ?, ?, ?)");
-    mysqli_stmt_bind_param($stmt, "ssss", $title, $content, $position, $active);
+    // Champs spécifiques (initialisés à NULL)
+    $content     = null;
+    $config_data = null;
+
+    // Remplir les champs spécifiques selon le type
+    switch ($widget_type) {
+        case 'html':
+            $content = $_POST['content'];
+            break;
+            
+        case 'latest_posts':
+            $limit = (int)$_POST['limit'];
+            $config = ['count' => $limit]; // Créer un tableau de configuration
+            $config_data = json_encode($config); // Encoder en JSON
+            break;
+            
+        case 'search':
+            // Ce type n'a besoin d'aucune configuration
+            break;
+
+        case 'quiz_leaderboard':
+            // Ce type n'a besoin d'aucune configuration
+            break;
+
+        case 'faq_leaderboard':
+            // Ce type n'a besoin d'aucune configuration
+            break;
+    
+        case 'testimonials':
+            // Pas de config spécifique nécessaire
+            break;    
+        }
+
+    // Insérer dans la base de données
+    $stmt = mysqli_prepare($connect, "INSERT INTO widgets (title, widget_type, content, config_data, position, active) VALUES (?, ?, ?, ?, ?, ?)");
+    mysqli_stmt_bind_param($stmt, "ssssss", $title, $widget_type, $content, $config_data, $position, $active);
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -32,19 +67,80 @@ if (isset($_POST['add'])) {
     echo '<meta http-equiv="refresh" content="0; url=widgets.php' . $status_url_query . '">';
     exit;
 }
+// --- FIN DE LA LOGIQUE DE SAUVEGARDE ---
+
+
+// Déterminer ce qu'il faut afficher (Sélection ou Formulaire)
+$type = $_GET['type'] ?? null;
+$widget_name = ''; // Nom pour le titre
+$widget_icon = 'fas fa-puzzle-piece'; // Icône par défaut
+
+if ($type) {
+    switch ($type) {
+        case 'html':
+            $widget_name = 'Custom HTML';
+            $widget_icon = 'fas fa-code';
+            break;
+        case 'latest_posts':
+            $widget_name = 'Recent Posts';
+            $widget_icon = 'fas fa-list-ul';
+            break;
+        case 'search':
+            $widget_name = 'Search Bar';
+            $widget_icon = 'fas fa-search';
+            break;
+        case 'quiz_leaderboard':
+            $widget_name = 'Quiz Leaderboard (Top 10)';
+            $widget_icon = 'fas fa-trophy';
+            break;
+        
+        case 'faq_leaderboard':
+            $widget_name = 'FAQ Leaderboard';
+            $widget_icon = 'fas fa-question-circle';
+            break;
+
+        case 'testimonials':
+            $widget_name = 'Testimonials Slider';
+            $widget_icon = 'fas fa-comments';
+            break;
+        default:
+            // Si le type est inconnu, rediriger vers la sélection
+            header('Location: add_widget.php');
+            exit;
+    }
+}
+
 ?>
 
 <div class="content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-sm-6">
-                <h1 class="m-0"><i class="fas fa-archive"></i> Add Widget</h1>
+                <h1 class="m-0"><i class="fas fa-archive"></i> 
+                    <?php 
+                    // Changer le titre de la page
+                    if ($type) {
+                        echo 'Ajouter un Widget : ' . htmlspecialchars($widget_name);
+                    } else {
+                        echo 'Ajouter un Widget';
+                    }
+                    ?>
+                </h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
                     <li class="breadcrumb-item"><a href="dashboard.php">Home</a></li>
                     <li class="breadcrumb-item"><a href="widgets.php<?php echo $status_url_query; ?>">Widgets</a></li>
-                    <li class="breadcrumb-item active">Add Widget</li>
+                    <li class="breadcrumb-item active">
+                        <?php 
+                        // Changer le breadcrumb
+                        if ($type) {
+                            echo htmlspecialchars($widget_name);
+                        } else {
+                            echo 'Choisir le type';
+                        }
+                        ?>
+                    </li>
                 </ol>
             </div>
         </div>
@@ -52,36 +148,174 @@ if (isset($_POST['add'])) {
 </div>
 <section class="content">
     <div class="container-fluid">
+    
+        <?php 
+        // --- NOUVELLE LOGIQUE D'AFFICHAGE (Étape 2) ---
+        
+        // MODE 1 : SÉLECTION DU TYPE (si ?type= n'est pas dans l'URL)
+        if (!$type): 
+        ?>
+        
         <div class="card card-primary card-outline">
             <div class="card-header">
-                <h3 class="card-title">New Widget Details</h3>
+                <h3 class="card-title">Choose the type of widget to create</h3>
             </div>
-            <form action="" method="post">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <a href="add_widget.php?type=html<?php echo $status_url_param; ?>" class="btn btn-app btn-block" style="height: 120px;">
+                            <i class="fas fa-code" style="font-size: 3rem;"></i>
+                            <span class="mt-2" style="font-size: 1.1rem;">Custom HTML</span>
+                            <p class="small text-muted mb-0">Insert text, images, or HTML.</p>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="add_widget.php?type=latest_posts<?php echo $status_url_param; ?>" class="btn btn-app btn-block" style="height: 120px;">
+                            <i class="fas fa-list-ul" style="font-size: 3rem;"></i> 
+                            <span class="mt-2" style="font-size: 1.1rem;">Recent Posts</span>
+                            <p class="small text-muted mb-0">Displays a list of recent posts.</p>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="add_widget.php?type=search<?php echo $status_url_param; ?>" class="btn btn-app btn-block" style="height: 120px;">
+                            <i class="fas fa-search" style="font-size: 3rem;"></i> 
+                            <span class="mt-2" style="font-size: 1.1rem;">Search</span>
+                            <p class="small text-muted mb-0">Displays the search form.</p>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="add_widget.php?type=quiz_leaderboard<?php echo $status_url_param; ?>" class="btn btn-app btn-block" style="height: 120px;">
+                            <i class="fas fa-trophy" style="font-size: 3rem;"></i> 
+                            <span class="mt-2" style="font-size: 1.1rem;">Quiz Leaderboard</span>
+                            <p class="small text-muted mb-0">Displays the top 10 players.</p>
+                        </a>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <a href="add_widget.php?type=faq_leaderboard<?php echo $status_url_param; ?>" class="btn btn-app btn-block" style="height: 120px;">
+                            <i class="fas fa-question-circle" style="font-size: 3rem;"></i> 
+                            <span class="mt-2" style="font-size: 1.1rem;">FAQ Leaderboard</span>
+                            <p class="small text-muted mb-0">Displays the top 10 questions.</p>
+                        </a>
+                    </div>
+
+                    <div class="col-md-4">
+                        <a href="add_widget.php?type=testimonials<?php echo $status_url_param; ?>" class="btn btn-app btn-block" style="height: 120px;">
+                            <i class="fas fa-comments" style="font-size: 3rem;"></i> 
+                            <span class="mt-2" style="font-size: 1.1rem;">Testimonials</span>
+                            <p class="small text-muted mb-0">Displays a slider of your customer reviews.</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="widgets.php<?php echo $status_url_query; ?>" class="btn btn-secondary">Cancel</a>
+            </div>
+        </div>
+
+        <?php 
+        // MODE 2 : AFFICHAGE DU FORMULAIRE SPÉCIFIQUE
+        else: 
+        ?>
+
+        <div class="card card-primary card-outline">
+            <div class="card-header">
+                <h3 class="card-title"><i class="<?php echo $widget_icon; ?>"></i> Widget Details</h3>
+            </div>
+            <form action="add_widget.php<?php echo $status_url_query; ?>" method="post">
                 <div class="card-body">
                     <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="widget_type" value="<?php echo htmlspecialchars($type); ?>">
+                    
                     <div class="form-group">
                         <label>Title</label>
                         <input class="form-control" name="title" value="" type="text" required>
                     </div>
-                    <div class="form-group">
-                        <label>Content</label>
-                        <textarea class="form-control" id="summernote" name="content" required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Position:</label>
-                        <select class="form-control" name="position" required>
-                            <option value="Sidebar" selected>Sidebar</option>
-                            <option value="Header">Header</option>
-                            <option value="Footer">Footer</option>
-                        </select>
-                    </div>
+
+                    <?php 
+                    // --- AFFICHAGE DES CHAMPS SPÉCIFIQUES ---
+                    switch ($type):
                     
-                    <div class="form-group">
-                        <label>Status</label>
-                        <select class="form-control" name="active" required>
-                            <option value="Yes" <?php if ($current_status == 'published' || $current_status == 'all') echo 'selected'; ?>>Published</option>
-                            <option value="No" <?php if ($current_status == 'draft') echo 'selected'; ?>>Draft</option>
-                        </select>
+                        // CAS 1: HTML
+                        case 'html': 
+                    ?>
+                            <div class="form-group">
+                                <label>Content</label>
+                                <textarea class="form-control" id="summernote" name="content" required></textarea>
+                            </div>
+                    <?php 
+                            break; 
+                        
+                        // CAS 2: ARTICLES RÉCENTS
+                        case 'latest_posts': 
+                    ?>
+                            <div class="form-group">
+                                <label>Number of posts to display</label>
+                                <input class="form-control" name="limit" value="5" type="number" required style="width: 200px;">
+                            </div>
+                    <?php 
+                            break;
+                            
+                        // CAS 3: RECHERCHE
+                        case 'search': 
+                    ?>
+                            <div class="alert alert-info">
+                                This widget does not require additional configuration.
+                            </div>
+                    <?php 
+                            break; 
+                    
+                        // CAS 4: QUIZ LEADERBOARD
+                        case 'quiz_leaderboard':
+                    ?>
+                            <div class="alert alert-info">
+                                This widget does not require additional configuration. It will display the global leaderboard of the top 10 players.
+                            </div>
+                    <?php 
+                            break; 
+
+                        // CASE 5 : Message pour le nouveau widget
+                        case 'faq_leaderboard':
+                    ?>
+                            <div class="alert alert-info">
+                                This widget does not require additional configuration. It will display the top 10 questions.
+                            </div>
+                    <?php 
+                            break; 
+                        // CASE 6 : TÉMOIGNAGES
+                        case 'testimonials':
+                        ?>
+                            <div class="alert alert-info">
+                                This widget will display your active testimonials in a slideshow format.
+                                <br>Make sure you have added testimonials in the <a href="testimonials.php">Testimonials</a> section.
+                            </div>
+                        <?php 
+                            break;
+                    endswitch; 
+
+                    // --- FIN DES CHAMPS SPÉCIFIQUES ---
+                    ?>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Position:</label>
+                                <select class="form-control" name="position" required>
+                                    <option value="Sidebar" selected>Sidebar</option>
+                                    <option value="Header">Header</option>
+                                    <option value="Footer">Footer</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select class="form-control" name="active" required>
+                                    <option value="Yes" <?php if ($current_status == 'published' || $current_status == 'all') echo 'selected'; ?>>Published</option>
+                                    <option value="No" <?php if ($current_status == 'draft') echo 'selected'; ?>>Draft</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     
                 </div>
@@ -91,6 +325,11 @@ if (isset($_POST['add'])) {
                 </div>
             </form>                          
         </div>
+        
+        <?php 
+        // Fin du "else" (MODE 2)
+        endif; 
+        ?>
 
     </div></section>
 <?php
