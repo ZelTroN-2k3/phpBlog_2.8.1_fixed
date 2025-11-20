@@ -60,13 +60,13 @@ if (isset($_POST['signin']) && !$is_locked_out) {
                 $_SESSION['login_lockout_time'] = 0;
                 
                 $_SESSION['sec-username'] = $username;
-                $message = '<div class="alert alert-success"><i class="fas fa-check"></i> Connexion réussie! Redirection...</div>';
+                $message = '<div class="alert alert-success"><i class="fas fa-check"></i> Login successful! Redirecting...</div>';
                 echo '<meta http-equiv="refresh" content="2; url=admin/dashboard.php">';
             
             } else {
                 // Mot de passe correct, MAIS ce n'est pas un admin
                 $_SESSION['login_attempts']++; // Compte comme un échec
-                $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Accès réservé aux administrateurs.</div>';
+                $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Access restricted to administrators only.</div>';
                 $error = 1;
             }
 
@@ -77,33 +77,35 @@ if (isset($_POST['signin']) && !$is_locked_out) {
             
             if ($_SESSION['login_attempts'] >= 5) {
                 $_SESSION['login_lockout_time'] = time() + 300; // 5 min
-                $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Vous avez échoué 5 fois. Veuillez réessayer dans 5 minutes.</div>';
+                $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> You have failed 5 times. Please try again in 5 minutes.</div>';
             } else {
-                 $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Identifiants invalides. ' . $attempts_remaining . ' tentative(s) restante(s).</div>';
+                 $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Invalid credentials. ' . $attempts_remaining . ' attempt(s) remaining.</div>';
             }
             $error = 1;
         }
     } else {
         // Utilisateur non trouvé
         $_SESSION['login_attempts']++;
-        $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Identifiants invalides.</div>';
+        $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Invalid credentials.</div>';
         $error = 1;
     }
     
     // Gérer le blocage si la limite est atteinte CE tour-ci
     if ($_SESSION['login_attempts'] >= 5 && !$is_locked_out) {
          $_SESSION['login_lockout_time'] = time() + 300;
-         $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Vous avez échoué 5 fois. Veuillez réessayer dans 5 minutes.</div>';
+         $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> You have failed 5 times. Please try again in 5 minutes.</div>';
          $is_locked_out = true; // Bloquer le formulaire immédiatement
     }
 }
+
+// --- DÉBUT HTML POUR LE FORMULAIRE DE CONNEXION ---
 ?>
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Connexion Admin - <?php echo htmlspecialchars($settings['sitename']); ?></title>
+    <title>Admin Login - <?php echo htmlspecialchars($settings['sitename']); ?></title>
     
     <link id="theme-link" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" type="text/css" rel="stylesheet"/>
@@ -133,7 +135,7 @@ if (isset($_POST['signin']) && !$is_locked_out) {
         <form action="admin.php" method="post">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
             
-            <i class="fas fa-shield-alt fa-3x mb-4 text-danger"></i>
+            <i class="fas fa-user-shield fa-3x mb-4 text-danger"></i>
             <h1 class="h3 mb-3 fw-normal">Admin Login</h1>
             <p class="text-muted">Restricted access (Maintenance)</p>
 
@@ -154,6 +156,9 @@ if (isset($_POST['signin']) && !$is_locked_out) {
             
             <p class="mt-5 mb-3 text-muted">&copy; <?php echo date("Y"); ?> <?php echo htmlspecialchars($settings['sitename']); ?></p>
         </form>
+        <div class="text-center mt-4">
+            <a href="index.php" class="text-muted small text-decoration-none"><i class="fas fa-arrow-left me-1"></i> Return to site</a>
+        </div>        
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

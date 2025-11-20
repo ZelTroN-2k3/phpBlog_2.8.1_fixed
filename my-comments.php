@@ -9,16 +9,16 @@ if ($logged == 'No') {
     exit;
 }
 
+// Suppression d'un commentaire
 if (isset($_GET['delete-comment'])) {
+    validate_csrf_token_get(); // Sécurité CSRF ajoutée
     $id = (int)$_GET["delete-comment"];
     
-    // Utiliser une requête préparée
     $stmt = mysqli_prepare($connect, "DELETE FROM `comments` WHERE user_id=? AND id=?");
     mysqli_stmt_bind_param($stmt, "ii", $user_id, $id); 
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
     
-    // Rediriger pour nettoyer l'URL
     echo '<meta http-equiv="refresh" content="0;url=my-comments.php">';
     exit;
 }
@@ -33,17 +33,20 @@ if ($settings['sidebar_position'] == 'Left') {
             <div class="card-body">
 
 <?php
-$query = mysqli_query($connect, "SELECT * FROM comments WHERE user_id='$user_id' ORDER BY created_at DESC");
-$count = mysqli_num_rows($query);
-if ($count <= 0) {
+// --- MODIFICATION : Requête préparée pour la sélection ---
+$stmt_comments = mysqli_prepare($connect, "SELECT * FROM comments WHERE user_id=? ORDER BY created_at DESC");
+mysqli_stmt_bind_param($stmt_comments, "i", $user_id);
+mysqli_stmt_execute($stmt_comments);
+$query = mysqli_stmt_get_result($stmt_comments);
+
+if (mysqli_num_rows($query) <= 0) {
     echo '<div class="alert alert-info">You have not written any comments yet.</div>';
 } else {
     while ($comment = mysqli_fetch_array($query)) {
         
-        // --- LOGIQUE D'AFFICHAGE DE RÉPONSE ---
+        // Logique d'affichage de réponse (inchangée, elle est bonne)
         $reply_info = '';
         if ($comment['parent_id'] > 0) {
-            
             $stmt_parent = mysqli_prepare($connect, "SELECT user_id, guest FROM `comments` WHERE id = ?");
             mysqli_stmt_bind_param($stmt_parent, "i", $comment['parent_id']);
             mysqli_stmt_execute($stmt_parent);
@@ -54,7 +57,6 @@ if ($count <= 0) {
                 if ($parent['guest'] == 'Yes') {
                     $parent_author_name = $parent['user_id'];
                 } else {
-                    // Récupérer le nom d'utilisateur réel si c'est un membre
                     $stmt_parent_user = mysqli_prepare($connect, "SELECT username FROM `users` WHERE id = ? LIMIT 1");
                     mysqli_stmt_bind_param($stmt_parent_user, "i", $parent['user_id']);
                     mysqli_stmt_execute($stmt_parent_user);
@@ -64,21 +66,17 @@ if ($count <= 0) {
                     }
                     mysqli_stmt_close($stmt_parent_user);
                 }
-                $reply_info = '<small class="text-muted d-block mb-2">
-                                  <i class="fas fa-reply"></i> 
-                                  En réponse à <b>' . htmlspecialchars($parent_author_name) . '</b>
-                               </small>';
+                $reply_info = '<small class="text-muted d-block mb-2"><i class="fas fa-reply"></i> En réponse à <b>' . htmlspecialchars($parent_author_name) . '</b></small>';
             }
             mysqli_stmt_close($stmt_parent);
         }
-        // --- FIN LOGIQUE D'AFFICHAGE DE RÉPONSE ---
         
 		echo '
 			<div class="card mb-3 shadow-sm">
 			  <div class="card-body p-3">
 					<h6 class="card-title mb-1">
                         <i class="fas fa-newspaper text-muted"></i> On post: 
-                        <a href="post?name=' . post_slug($comment['post_id']) . '#comment-' . $comment['id'] . '" class="text-primary">' . post_title($comment['post_id'])  . '</a>
+                        <a href="post?name=' . post_slug($comment['post_id']) . '#comment-' . $comment['id'] . '" class="text-primary fw-bold">' . post_title($comment['post_id'])  . '</a>
 					</h6>
                     ' . $reply_info . '
 					
@@ -88,10 +86,10 @@ if ($count <= 0) {
 
 					<div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <a href="edit-comment.php?id=' . $comment['id'] . '" class="btn btn-primary btn-sm me-2" title="To modify">
+                            <a href="edit-comment.php?id=' . $comment['id'] . '" class="btn btn-primary btn-sm me-2">
                                 <i class="fa fa-edit"></i> Edit
                             </a>
-                            <a href="?delete-comment=' . $comment['id']  . '" class="btn btn-danger btn-sm" title="Delete" onclick="return confirm(\'Are you sure you want to delete your comment?\');">
+                            <a href="?delete-comment=' . $comment['id']  . '&token=' . $_SESSION['csrf_token'] . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure you want to delete your comment?\');">
                                 <i class="fa fa-trash"></i> Delete
                             </a>
                         </div>
@@ -116,8 +114,8 @@ if ($count <= 0) {
 	    ';
 	}
 }
+mysqli_stmt_close($stmt_comments);
 ?>
-
             </div>
 		</div>
 	</div>

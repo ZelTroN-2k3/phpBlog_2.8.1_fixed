@@ -5,24 +5,35 @@ head();
 if ($settings['sidebar_position'] == 'Left') {
 	sidebar();
 }
+
+// Fonction locale pour surligner le mot recherché
+function highlight_term($text, $word) {
+    // Échapper les caractères spéciaux regex
+    $word = preg_quote($word, '/');
+    // Remplacer le mot (insensible à la casse) par <mark>mot</mark>
+    return preg_replace("/($word)/i", '<mark class="bg-warning text-dark rounded px-1">$1</mark>', $text);
+}
 ?>
             <div class="col-md-8 mb-3">
-
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white"><i class="fas fa-search"></i> Search</div>
-                    <div class="card-body">
+                
+                <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
+                    <h2 class="h4 m-0"><i class="fas fa-search text-primary me-2"></i> Résultats de recherche</h2>
+                    <?php if (isset($_GET['q'])): ?>
+                        <span class="badge bg-light text-dark border">Pour : "<?php echo htmlspecialchars($_GET['q']); ?>"</span>
+                    <?php endif; ?>
+                </div>
 
 <?php
 if (isset($_GET['q'])) {
     $word = $_GET['q'];
     
     if (strlen($word) < 2) {
-        echo '<div class="alert alert-warning">Enter at least 2 characters to search.</div>';
+        echo '<div class="alert alert-warning shadow-sm border-0"><i class="fas fa-exclamation-triangle me-2"></i> Veuillez entrer au moins 2 caractères.</div>';
     } else {
         
-        $search_word = '%' . $word . '%'; // Terme pour le LIKE
+        $search_word = '%' . $word . '%';
 
-        // 1. Compter le nombre total de résultats avec une requête préparée
+        // 1. Compter le total
         $stmt_count = mysqli_prepare($connect, "SELECT COUNT(id) AS numrows FROM posts WHERE active='Yes' AND publish_at <= NOW() AND (title LIKE ? OR content LIKE ?)");
         mysqli_stmt_bind_param($stmt_count, "ss", $search_word, $search_word);
         mysqli_stmt_execute($stmt_count);
@@ -32,153 +43,116 @@ if (isset($_GET['q'])) {
         mysqli_stmt_close($stmt_count);
 
         if ($numrows == 0) {
-            echo '<div class="alert alert-info">No results found for <b>"' . htmlspecialchars($word) . '"</b>.</div>';
+            echo '
+            <div class="text-center py-5 text-muted">
+                <i class="far fa-folder-open fa-4x mb-3 opacity-50"></i>
+                <h4>Aucun résultat trouvé</h4>
+                <p>Essayez avec d\'autres mots-clés ou vérifiez l\'orthographe.</p>
+                <a href="blog" class="btn btn-primary mt-2">Voir tous les articles</a>
+            </div>';
         } else {
         
-            echo '<div class="alert alert-success">' . $numrows . ' results found for <b>"' . htmlspecialchars($word) . '"</b></div>';
-
+            // 2. Pagination
             $postsperpage = 8;
-
             $pageNum = 1;
-            if (isset($_GET['page'])) {
-                // S'assurer que pageNum est un entier
-                $pageNum = (int)$_GET['page'];
-            }
-            // Vérifier que pageNum est valide
-            if (!is_numeric($pageNum) || $pageNum < 1) {
-                echo '<meta http-equiv="refresh" content="0; url=blog">';
-                exit();
-            }
+            if (isset($_GET['page'])) { $pageNum = (int)$_GET['page']; }
+            if (!is_numeric($pageNum) || $pageNum < 1) { echo '<meta http-equiv="refresh" content="0; url=blog">'; exit(); }
             $rows = ($pageNum - 1) * $postsperpage;
 
-            // 2. Récupérer les résultats paginés avec une requête préparée
+            // 3. Requête des résultats
             $stmt_results = mysqli_prepare($connect, "SELECT * FROM `posts` WHERE (title LIKE ? OR content LIKE ?) AND active='Yes' AND publish_at <= NOW() ORDER BY id DESC LIMIT ?, ?");
-            // "ssii" -> string, string, integer, integer
             mysqli_stmt_bind_param($stmt_results, "ssii", $search_word, $search_word, $rows, $postsperpage);
             mysqli_stmt_execute($stmt_results);
             $run = mysqli_stmt_get_result($stmt_results);
+            
+            echo '<div class="row">'; // Début grille
             
             while ($row = mysqli_fetch_assoc($run)) {
                 
                 $image = "";
                 if($row['image'] != "") {
-                    // Utiliser htmlspecialchars pour les attributs alt
-                    $image = '<img src="' . htmlspecialchars($row['image']) . '" alt="' . htmlspecialchars($row['title']) . '" class="rounded-start" width="100%" height="100%" style="object-fit: cover;">';
+                    $image = '<img src="' . htmlspecialchars($row['image']) . '" alt="' . htmlspecialchars($row['title']) . '" class="card-img-top" style="height: 180px; object-fit: cover;">';
                 } else {
-                    $image = '<svg class="bd-placeholder-img rounded-start" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail" preserveAspectRatio="xMidYMid slice" focusable="false">
-                    <title>No Image</title><rect width="100%" height="100%" fill="#55595c"/>
-                    <text x="37%" y="50%" fill="#eceeef" dy=".3em">No Image</text></svg>';
+                    $image = '<div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 180px;"><i class="fas fa-image fa-2x opacity-50"></i></div>';
                 }
                 
-                // Utiliser htmlspecialchars pour toutes les sorties
+                // Préparation du texte avec surlignage
+                $title_display = highlight_term(htmlspecialchars($row['title']), $word);
+                $excerpt_raw = short_text(strip_tags(html_entity_decode($row['content'])), 120);
+                $excerpt_display = highlight_term(htmlspecialchars($excerpt_raw), $word);
+
                 echo '
-                                <div class="card mb-3 border-0 border-bottom">
-                                    <div class="row g-0">
-                                        <div class="col-md-4">
-                                            <a href="post?name=' . htmlspecialchars($row['slug']) . '">
-                                                '. $image .'
-                                            </a>
-                                        </div>
-                                        <div class="col-md-8">
-                                            <div class="card-body py-3">
-                                                <div class="d-flex justify-content-between align-items-start row">
-                                                    <div class="col-md-9">
-                                                        <a href="post?name=' . htmlspecialchars($row['slug']) . '" class="text-decoration-none">
-                                                            <h5 class="card-title text-primary">' . htmlspecialchars($row['title']) . '</h5>
-                                                        </a>
-                                                    </div>
-                                                    <div class="col-md-3 text-end">
-                                                        <a href="category?name=' . htmlspecialchars(post_categoryslug($row['category_id'])) . '">
-                                                            <span class="badge bg-secondary">' . htmlspecialchars(post_category($row['category_id'])) . '</span>
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <small class="text-muted">
-                                                        Posted by <b><i><i class="fas fa-user"></i> ' . post_author($row['author_id']) . '</i></b> on <b><i><i class="far fa-calendar-alt"></i> ' . date($settings['date_format'] . ' H:i', strtotime($row['created_at'])) . '</i></b>
-                                                        
-                                                        <span class="ms-3">
-                                                            <b><i>' . get_reading_time($row['content']) . '</i></b>
-                                                        </span>
-                                                        </small>
-                                                    <small class="text-muted">
-                                                        <i class="fas fa-thumbs-up me-2"></i><b>' . get_post_like_count($row['id']) . '</b>
-                                                        
-                                                        <i class="fas fa-comments ms-3"></i>
-                                                        <a href="post?name=' . htmlspecialchars($row['slug']) . '#comments" class="blog-comments text-decoration-none"><b>' . post_commentscount($row['id']) . '</b></a>
-                                                    </small>
-                                                </div>
-                                                
-                                                <p class="card-text">' . htmlspecialchars(short_text(strip_tags(html_entity_decode($row['content'])), 200)) . '</p>
-                                                
-                                                <a href="post?name=' . htmlspecialchars($row['slug']) . '" class="btn btn-sm btn-outline-primary mt-2">
-                                                    Read more
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm border-0 hover-shadow transition-300">
+                        <a href="post?name=' . htmlspecialchars($row['slug']) . '" class="text-decoration-none">
+                            '. $image .'
+                        </a>
+                        <div class="card-body d-flex flex-column">
+                            <div class="mb-2">
+                                <a href="category?name=' . htmlspecialchars(post_categoryslug($row['category_id'])) . '" class="badge bg-light text-primary border text-decoration-none">
+                                    ' . htmlspecialchars(post_category($row['category_id'])) . '
+                                </a>
+                            </div>
+                            
+                            <h5 class="card-title mb-2">
+                                <a href="post?name=' . htmlspecialchars($row['slug']) . '" class="text-dark text-decoration-none fw-bold">
+                                    ' . $title_display . '
+                                </a>
+                            </h5>
+                            
+                            <p class="card-text text-muted small mb-3 flex-grow-1">
+                                ' . $excerpt_display . '...
+                            </p>
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-auto pt-3 border-top">
+                                <small class="text-muted"><i class="far fa-calendar-alt"></i> ' . date('d/m/Y', strtotime($row['created_at'])) . '</small>
+                                <a href="post?name=' . htmlspecialchars($row['slug']) . '" class="btn btn-sm btn-outline-primary rounded-pill px-3">Lire</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 ';
             }
-            mysqli_stmt_close($stmt_results); // Fermer la requête préparée
+            echo '</div>'; // Fin grille
+            mysqli_stmt_close($stmt_results);
             
-            // 3. Pagination (le $numrows vient de la première requête)
+            // 4. Pagination (Style Bootstrap)
             $maxPage = ceil($numrows / $postsperpage);
-            
-            $pagenums = '';
-            
-            echo '<center class="mt-4">';
-            
-            // Encoder le terme de recherche pour l'URL
             $safe_word = urlencode($word);
             
-            // Ajout des boutons First/Previous
-            if ($pageNum > 1) {
-                $page     = $pageNum - 1;
-                $previous = "<a href=\"?q=$safe_word&page=$page\" class='btn btn-outline-secondary m-1'><i class='fa fa-arrow-left'></i> Previous</a> ";
-                $first = "<a href=\"?q=$safe_word&page=1\" class='btn btn-outline-secondary m-1'>First</a> ";
-            } else {
-                $previous = '';
-                $first    = '';
+            if ($maxPage > 1) {
+                echo '<nav aria-label="Page navigation" class="mt-4"><ul class="pagination justify-content-center">';
+                
+                // Prev
+                if ($pageNum > 1) {
+                    echo '<li class="page-item"><a class="page-link" href="?q='.$safe_word.'&page='.($pageNum-1).'"><i class="fas fa-chevron-left"></i></a></li>';
+                } else {
+                    echo '<li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-left"></i></span></li>';
+                }
+                
+                // Numbers
+                for ($page = 1; $page <= $maxPage; $page++) {
+                    $active = ($page == $pageNum) ? 'active' : '';
+                    echo '<li class="page-item '.$active.'"><a class="page-link" href="?q='.$safe_word.'&page='.$page.'">'.$page.'</a></li>';
+                }
+                
+                // Next
+                if ($pageNum < $maxPage) {
+                    echo '<li class="page-item"><a class="page-link" href="?q='.$safe_word.'&page='.($pageNum+1).'"><i class="fas fa-chevron-right"></i></a></li>';
+                } else {
+                    echo '<li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-right"></i></span></li>';
+                }
+                
+                echo '</ul></nav>';
             }
-            
-            echo $first . $previous;
-
-            // Affichage des numéros de page
-            for ($page = 1; $page <= $maxPage; $page++) {
-                $active_class = ($page == $pageNum) ? 'btn-primary' : 'btn-outline-primary';
-                $pagenums .= "<a href='?q=$safe_word&page=$page' class='btn $active_class m-1'>$page</a> ";
-            }
-            echo $pagenums;
-
-            // Ajout des boutons Next/Last
-            if ($pageNum < $maxPage) {
-                $page = $pageNum + 1;
-                $next = "<a href=\"?q=$safe_word&page=$page\" class='btn btn-outline-secondary m-1'><i class='fa fa-arrow-right'></i> Next</a> ";
-                $last = "<a href=\"?q=$safe_word&page=$maxPage\" class='btn btn-outline-secondary m-1'>Last</a> ";
-            } else {
-                $next = '';
-                $last = '';
-            }
-            
-            echo $next . $last;
-            
-            echo '</center>';
         }
     }
 } else {
-    // Rediriger vers l'accueil si aucun terme de recherche n'est fourni
     echo '<meta http-equiv="refresh" content="0; url=' . $settings['site_url'] . '">';
     exit();
 }
 ?>
-
-                    </div>
-                </div>
-                
-            </div>
-<?php
+            </div> <?php
 if ($settings['sidebar_position'] == 'Right') {
 	sidebar();
 }
