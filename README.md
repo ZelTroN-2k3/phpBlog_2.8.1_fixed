@@ -1,3 +1,77 @@
+# Mon CMS - v3.0.1
+
+Ce projet est un Content Management System (CMS) développé en PHP procédural.
+
+Initialement basé sur un tutoriel Udemy, il a été considérablement modernisé, sécurisé et étendu avec de nombreuses fonctionnalités personnalisées. L'interface d'administration est propulsée par le template **AdminLTE 3**, l'éditeur de texte par **Summernote**, et les tableaux par **DataTables**.
+
+---
+
+## 🚀 Nouveautés récentes (v3.0.1)
+
+Cette version se concentre sur la stabilité et l'amélioration de l'expérience d'administration.
+
+* **Gestion des bannissements :** Mise en place d'une nouvelle interface pour **personnaliser l'image d'arrière-plan** de la page publique "Banned".
+* **Stabilité :** Refonte complète du système de déconnexion (`logout.php`) pour corriger les erreurs de redirection sur les serveurs de production.
+* **Dashboard Admin :** Optimisation du widget "Raccourcis", désormais replié par défaut pour plus de clarté.
+
+---
+
+## ✨ Fonctionnalités Principales
+
+### Front-office (Partie visible)
+* Affichage des articles de blog avec pagination.
+* Affichage des pages statiques.
+* Système de commentaires sur les articles.
+* Formulaire de contact fonctionnel.
+* Barre latérale avec widgets (Recherche, Catégories, etc.).
+* Design responsive (basé sur Bootstrap).
+
+### Back-office (Administration)
+* **Tableau de bord (Dashboard)** : Vue d'ensemble et statistiques.
+* **Gestion des Articles** : CRUD complet avec éditeur riche (Summernote) et image à la une.
+* **Gestion des Catégories** : Créer, modifier, supprimer.
+* **Gestion des Pages** : Créer des pages statiques (ex: À propos).
+* **Gestion des Utilisateurs** :
+    * Inscription et connexion sécurisée.
+    * Rôles : Admin et Subscriber.
+    * Système de bannissement avec **page personnalisable**.
+* **Modération des Commentaires** : Approuver ou supprimer les commentaires.
+* **Médiathèque** : Gestion des fichiers uploadés.
+* **Gestionnaire de Menu** : Outil drag-and-drop pour organiser le menu du site.
+* **Gestion des Widgets** : Activer/désactiver les éléments de la sidebar.
+* **Paramètres** : Configuration générale du site.
+
+---
+
+## 🛠️ Installation (Manuelle)
+
+*Note : Un installateur automatique est en cours de développement.*
+
+1.  **Base de données :**
+    * Créez une base de données MySQL.
+    * Importez le fichier `database.sql` (situé à la racine du projet) dans votre nouvelle base de données.
+
+2.  **Configuration :**
+    * Renommez le fichier `includes/db.php.example` en `includes/db.php` (si ce n'est pas déjà fait).
+    * Modifiez `includes/db.php` avec vos identifiants BDD :
+        ```php
+        $db['db_host'] = "localhost";
+        $db['db_user'] = "votre_user";
+        $db['db_pass'] = "votre_pass";
+        $db['db_name'] = "votre_db_name";
+        ```
+
+3.  **Accès :**
+    * Accédez au site via votre navigateur.
+    * Administration : `/admin`
+    * Identifiants par défaut (À CHANGER !) : `admin@admin.com` / `password`
+
+---
+
+## État du projet
+
+Projet fonctionnel et stable, en constante amélioration.
+Des mises à jour régulières sont prévues pour ajouter des fonctionnalités, améliorer la sécurité et optimiser les performances.
 ---
 
 # phpBlog v2.9 (Édition Modifiée)
