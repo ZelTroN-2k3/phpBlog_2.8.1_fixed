@@ -2001,7 +2001,8 @@ if ($settings['layout'] == 'Wide') {
 							<span class="caret"></span>
 						</a>
 						<ul class="dropdown-menu">
-							<li><a class="dropdown-item" href="blog">View all posts</a></li>';
+							<li><a class="dropdown-item" href="blog">View all posts</a></li>
+                            <li><a class="dropdown-item" href="categories">View all Categories</a></li>';
             
             // Requête simple sans variable externe
             $run2 = mysqli_query($connect, "SELECT * FROM `categories` ORDER BY category ASC");
