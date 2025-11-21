@@ -174,7 +174,7 @@ CREATE TABLE `footer_pages` (
 --
 
 INSERT INTO `footer_pages` (`id`, `page_key`, `title`, `content`, `active`) VALUES
-(1, 'legal', 'Legal Information', '<p>Please enter your legal information here...</p>', 'Yes'),
+(1, 'legal', 'Legal Information', '<div class=\"d-flex gap-2 justify-content-start flex-wrap\"> <a href=\"legal-notice\" class=\"btn btn-outline-light btn-sm\" title=\"legal-notice\">\r\n        <i class=\"fas fa-balance-scale fa-lg text-info\"></i> <span class=\"small\">Legal Notice</span>\r\n    </a>\r\n    <a href=\"privacy-policy\" class=\"btn btn-outline-light btn-sm\" title=\"privacy-policy\">\r\n        <i class=\"fas fa-user-shield fa-lg text-info\"></i> <span class=\"small\">Privacy Policy</span>\r\n    </a>\r\n</div>', 'Yes'),
 (2, 'contact_methods', 'Contact Methods', '<p>Please write your contact information here...</p>', 'Yes'),
 (3, 'most_viewed', 'Viewed Pages', '<p>Write a text or links to your popular pages here...</p>', 'Yes'),
 (4, 'cta_buttons', 'Call-to-Action', '<p>Write your call-to-action buttons here (e.g., Newsletter, Contact)...</p>', 'Yes'),
