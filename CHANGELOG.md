@@ -4,32 +4,6 @@ Tous les changements notables apportés à ce projet seront documentés dans ce 
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
-## [3.1.0] - 2023-11-22
-### 🚀 Refonte Majeure de l'Administration (UI/UX & Architecture)
-Cette version introduit une interface professionnelle standardisée "2 colonnes" et sépare la logique de liste et d'édition pour une meilleure maintenabilité.
-
-### ✨ Nouveautés & Améliorations
-* **Architecture Global Admin :** Séparation systématique des fichiers de "Liste" et d'"Édition" pour les modules principaux.
-    * Création de `admin/edit_post.php`, `admin/edit_page.php`, `admin/edit_category.php`, `admin/edit_gallery.php`, `admin/edit_slide.php`, `admin/edit_quiz.php`.
-* **Design "Pro" (2 Colonnes) :** Refonte de tous les formulaires d'ajout et d'édition (Articles, Pages, Catégories, Quiz, Slider, Galerie) avec :
-    * Colonne Gauche (75%) : Contenu principal (Titre, Éditeur, Images).
-    * Colonne Droite (25%) : Barre latérale de métadonnées (Publication, Date, Catégories, Options).
-* **Interface Utilisateur (UI) :**
-    * Harmonisation des tableaux de liste avec boutons d'actions compacts (Icônes uniquement) et espacés.
-    * Correction des marges (Grid Bootstrap) sur toutes les pages de liste pour éviter l'effet "collé aux bords".
-    * Ajout de **prévisualisation d'image en temps réel** (JS) sur tous les formulaires d'upload.
-* **Module Quiz :**
-    * Remplacement du menu déroulant "Difficulté" par des **boutons radio colorés** (Vert/Bleu/Jaune/Rouge) pour une meilleure ergonomie.
-    * Réintégration complète des widgets de statistiques et des tableaux de bord dans `quiz_stats.php`.
-    * Conservation de la logique complexe de suppression en cascade (Options > Questions > Quiz).
-
-### 🐛 Corrections de Bugs
-* **Tags (Articles) :** Correction critique de la duplication des tags lors de l'édition d'un article. Nettoyage automatique des tags orphelins en base de données.
-* **Quiz :** Correction des champs manquants (Points) et sécurisation de la création des dossiers d'upload (`mkdir`).
-* **Mise en page :** Correction des structures HTML invalides (balises `<td>` imbriquées) dans les tableaux d'administration.
-
----
-
 ## [v3.0.1] - Version actuelle
 Cette version se concentre sur la stabilité, la sécurité du processus de déconnexion et des améliorations de l'interface d'administration.
 
@@ -99,3 +73,4 @@ Version stable issue du tutoriel Udemy de base.
 - Système de commentaires simple.
 
 - Partie front-office basique pour afficher le blog.
+
