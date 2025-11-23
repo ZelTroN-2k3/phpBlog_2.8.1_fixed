@@ -2,72 +2,43 @@
 include "core.php";
 head();
 
+// Redirection si déjà connecté
 if ($logged == 'Yes') {
     echo '<meta http-equiv="refresh" content="0; url=' . $settings['site_url'] . '">';
     exit;
 }
 
+// Gestion de la Sidebar Gauche
 if ($settings['sidebar_position'] == 'Left') {
 	sidebar();
 }
 
-$error = 0;
+// --- Initialisation du Rate Limiting (Sécurité Brute Force) ---
+if (!isset($_SESSION['login_attempts'])) { $_SESSION['login_attempts'] = 0; }
+if (!isset($_SESSION['login_lockout_time'])) { $_SESSION['login_lockout_time'] = 0; }
 
-// --- NOUVEL AJOUT : Initialisation du Rate Limiting ---
-if (!isset($_SESSION['login_attempts'])) {
-    $_SESSION['login_attempts'] = 0;
-}
-if (!isset($_SESSION['login_lockout_time'])) {
-    $_SESSION['login_lockout_time'] = 0;
-}
-// --- FIN AJOUT ---
+$error_login = '';
+$error_register = '';
+$success_register = '';
 
-?>
-    <div class="col-md-8 mb-3">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white"><i class="fas fa-user-plus"></i> Membership</div>
-                <div class="card-body">
-
-                    <div class="row">
-						<div class="col-md-6 mb-4 border-end">
-                        <h5 class="mb-3"><i class="fas fa-sign-in-alt"></i> Sign In</h5>
-                                                    
-                        <div class="mb-3">
-                            <p class="text-center">Connect quickly with:</p>
-                            <div class="d-grid gap-2">
-                                <a href="social_callback.php?provider=Google" class="btn btn-danger">
-                                    <i class="fab fa-google"></i> &nbsp; Sign in with Google
-                                </a>
-                                </div>
-                            <hr>
-                            <p class="text-center">Or with your account:</p>
-                        </div>
-<?php
-// --- NOUVEL AJOUT : Vérification du blocage ---
+// ============================================================
+// LOGIQUE DE CONNEXION (SIGN IN)
+// ============================================================
 $is_locked_out = false;
 if ($_SESSION['login_lockout_time'] > time()) {
     $is_locked_out = true;
     $time_remaining = ceil(($_SESSION['login_lockout_time'] - time()) / 60);
-    echo '
-    <div class="alert alert-danger">
-        <i class="fas fa-exclamation-triangle"></i> You failed too many times. Please try again in ' . $time_remaining . ' minute(s).
-    </div>';
-    $error = 1; // Pour désactiver le formulaire
+    $error_login = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Too many failed attempts. Please try again in ' . $time_remaining . ' minute(s).</div>';
 }
-// --- FIN AJOUT ---
 
-
-if (isset($_POST['signin']) && !$is_locked_out) { // Ne traiter que si non bloqué
-    
-    // --- Validation CSRF ---
+if (isset($_POST['signin']) && !$is_locked_out) {
     validate_csrf_token();
-    // --- FIN ---
     
     $username = $_POST['username'];
-    $password_plain = $_POST['password']; // Mot de passe en clair
+    $password_plain = $_POST['password'];
     
-    // 1. Récupérer le hash du mot de passe pour cet utilisateur
-    $stmt = mysqli_prepare($connect, "SELECT username, password FROM `users` WHERE `username`=?");
+    // 1. Récupérer le hash
+    $stmt = mysqli_prepare($connect, "SELECT id, username, password FROM `users` WHERE `username`=?");
     mysqli_stmt_bind_param($stmt, "s", $username);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
@@ -75,216 +46,216 @@ if (isset($_POST['signin']) && !$is_locked_out) { // Ne traiter que si non bloqu
 
     if (mysqli_num_rows($result) > 0) {
         $user_row = mysqli_fetch_assoc($result);
-        $hashed_password = $user_row['password'];
-
-        // 2. Vérifier le mot de passe en clair contre le hash
-        if (password_verify($password_plain, $hashed_password)) {
-            // Le mot de passe est correct !
-            
-            // --- NOUVEL AJOUT : Réinitialiser le compteur ---
+        
+        if (password_verify($password_plain, $user_row['password'])) {
+            // Succès : Reset des tentatives
             $_SESSION['login_attempts'] = 0;
             $_SESSION['login_lockout_time'] = 0;
-            // --- FIN AJOUT ---
-            
             $_SESSION['sec-username'] = $username;
-            echo '<meta http-equiv="refresh" content="0; url=' . $settings['site_url'] . '">';
-        } else {
-            // Mot de passe incorrect
-            
-            // --- NOUVEL AJOUT : Logique d'échec Rate Limiting ---
-            $_SESSION['login_attempts']++;
-            $attempts_remaining = 5 - $_SESSION['login_attempts'];
-            
-            if ($_SESSION['login_attempts'] >= 5) {
-                $_SESSION['login_lockout_time'] = time() + 300; // Bloquer pour 5 minutes (300 secondes)
-                echo '
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle"></i> You failed 5 times. Please try again in 5 minutes.
-                </div>';
-            } else {
-                 echo '
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle"></i> The <strong>username</strong> or <strong>password</strong> is incorrect.<br>
-                    You have ' . $attempts_remaining . ' attempt(s) left.
-                </div>';
-            }
-            // --- FIN AJOUT ---
-            
-            $error = 1;
+            echo '<meta http-equiv="refresh" content="0; url=profile">';
+            exit;
         }
+    }
+    
+    // Échec : Incrémenter tentatives
+    $_SESSION['login_attempts']++;
+    $attempts_left = 5 - $_SESSION['login_attempts'];
+    
+    if ($_SESSION['login_attempts'] >= 5) {
+        $_SESSION['login_lockout_time'] = time() + 300; // Bloquer 5 min
+        $error_login = '<div class="alert alert-danger"><i class="fas fa-lock"></i> Too many failures. Account locked for 5 minutes.</div>';
+        $is_locked_out = true;
     } else {
-        // Utilisateur non trouvé (on le compte aussi comme un échec)
-        
-        // --- NOUVEL AJOUT : Logique d'échec Rate Limiting ---
-        $_SESSION['login_attempts']++;
-        $attempts_remaining = 5 - $_SESSION['login_attempts'];
-
-        if ($_SESSION['login_attempts'] >= 5) {
-            $_SESSION['login_lockout_time'] = time() + 300; // Bloquer pour 5 minutes
-             echo '
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle"></i> You failed 5 times. Please try again in 5 minutes.
-            </div>';
-        } else {
-            echo '
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-circle"></i> The <strong>username</strong> or <strong>password</strong> is incorrect.<br>
-                You have ' . $attempts_remaining . ' attempt(s) left.
-            </div>';
-        }
-        // --- FIN AJOUT ---
-        
-        $error = 1;
+        $error_login = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Incorrect username or password. (' . $attempts_left . ' attempts left)</div>';
     }
 }
-?> 
-			<form action="" method="post">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                
-                <div class="input-group mb-3">
-                    <span class="input-group-text"><i class="fas fa-user"></i></span>
-                    <input type="username" name="username" class="form-control" placeholder="Username" <?php
-if ($error == 1) {
-    echo 'autofocus';
-}
-?> required <?php if ($is_locked_out) echo 'disabled'; ?>>
-                </div>
-                <div class="input-group mb-3">
-                    <span class="input-group-text"><i class="fas fa-key"></i></span>
-                    <input type="password" name="password" class="form-control" placeholder="Password" required <?php if ($is_locked_out) echo 'disabled'; ?>>
-                </div>
 
-                <button type="submit" name="signin" class="btn btn-primary col-12" <?php if ($is_locked_out) echo 'disabled'; ?>><i class="fas fa-sign-in-alt"></i>
-    &nbsp;Sign In</button>
-
-            </form> 
-						</div>
-						<div class="col-md-6">
-							<h5 class="mb-3"><i class="fas fa-user-plus"></i> Registration</h5>
-                <?php
+// ============================================================
+// LOGIQUE D'INSCRIPTION (REGISTER)
+// ============================================================
 if (isset($_POST['register'])) {
-    
-    // --- Validation CSRF ---
     validate_csrf_token();
-    // --- FIN ---
     
-    $username = $_POST['username'];
-    // MODIFICATION : Utiliser password_hash()
-    $password = $_POST['password'];
-    $email    = $_POST['email'];
-    $captcha  = '';
+    $reg_username = strip_tags(trim($_POST['reg_username']));
+    $reg_email    = filter_var($_POST['reg_email'], FILTER_SANITIZE_EMAIL);
+    $reg_password = $_POST['reg_password'];
+    $captcha      = $_POST['g-recaptcha-response'] ?? '';
     
-    // Validation du côté PHP
-    $registration_error = false;
-    
-    if (isset($_POST['g-recaptcha-response'])) {
-        $captcha = $_POST['g-recaptcha-response'];
+    // Validation Captcha
+    $captcha_valid = false;
+    if (!empty($settings['gcaptcha_secretkey']) && !empty($captcha)) {
+        $url = 'https://www.google.com/recaptcha/api/siteverify?secret=' . urlencode($settings['gcaptcha_secretkey']) . '&response=' . urlencode($captcha);
+        $response = file_get_contents($url);
+        $keys = json_decode($response, true);
+        if ($keys["success"]) { $captcha_valid = true; }
+    } elseif (empty($settings['gcaptcha_secretkey'])) {
+        $captcha_valid = true; // Pas de captcha configuré
     }
 
-    if (empty($captcha)) {
-        echo '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> Please complete the reCAPTCHA.</div>';
-        $registration_error = true;
-    }
+    if (!$captcha_valid) {
+        $error_register = '<div class="alert alert-danger">Please complete the Captcha verification.</div>';
+    } else {
+        // Vérifier Username
+        $stmt_u = mysqli_prepare($connect, "SELECT id FROM `users` WHERE username=?");
+        mysqli_stmt_bind_param($stmt_u, "s", $reg_username);
+        mysqli_stmt_execute($stmt_u);
+        mysqli_stmt_store_result($stmt_u);
+        $user_exist = mysqli_stmt_num_rows($stmt_u);
+        mysqli_stmt_close($stmt_u);
 
-    if (!$registration_error) {
-        $url          = 'https://www.google.com/recaptcha/api/siteverify?secret=' . urlencode($settings['gcaptcha_secretkey']) . '&response=' . urlencode($captcha);
-        $response     = file_get_contents($url);
-        $responseKeys = json_decode($response, true);
-        
-        if (!$responseKeys["success"]) {
-            echo '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> Failed to verify reCAPTCHA.</div>';
-            $registration_error = true;
-        }
-    }
-    
-    if (!$registration_error) {
-        // Use prepared statement for username check
-        $stmt = mysqli_prepare($connect, "SELECT username FROM `users` WHERE username=?");
-        mysqli_stmt_bind_param($stmt, "s", $username);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
-        mysqli_stmt_close($stmt);
+        // Vérifier Email
+        $stmt_e = mysqli_prepare($connect, "SELECT id FROM `users` WHERE email=?");
+        mysqli_stmt_bind_param($stmt_e, "s", $reg_email);
+        mysqli_stmt_execute($stmt_e);
+        mysqli_stmt_store_result($stmt_e);
+        $email_exist = mysqli_stmt_num_rows($stmt_e);
+        mysqli_stmt_close($stmt_e);
 
-        if (mysqli_num_rows($result) > 0) {
-            echo '<div class="alert alert-warning"><i class="fa fa-exclamation-circle"></i> The username is taken.</div>';
-            $registration_error = true;
+        if ($user_exist > 0) {
+            $error_register = '<div class="alert alert-warning">This Username is already taken.</div>';
+        } elseif ($email_exist > 0) {
+            $error_register = '<div class="alert alert-warning">This E-Mail is already registered.</div>';
         } else {
+            // Création du compte
+            $password_hashed = password_hash($reg_password, PASSWORD_DEFAULT);
             
-            // Use prepared statement for email check
-            $stmt = mysqli_prepare($connect, "SELECT email FROM `users` WHERE email=?");
-            mysqli_stmt_bind_param($stmt, "s", $email);
-            mysqli_stmt_execute($stmt);
-            $result2 = mysqli_stmt_get_result($stmt);
-            mysqli_stmt_close($stmt);
+            // --- RETRAIT : Suppression de l'avatar automatique UI Avatars ---
+            // On utilise l'avatar par défaut défini en base de données (ou géré par le système d'affichage)
+            // Généralement, on laisse le champ avatar vide ou NULL, et le système d'affichage utilise l'image par défaut.
+            $avatar_url = 'assets/img/avatar.png'; // Valeur par défaut explicite
 
-            if (mysqli_num_rows($result2) > 0) {
-                echo '<div class="alert alert-warning"><i class="fa fa-exclamation-circle"></i> The E-Mail Address is taken</div>';
-                $registration_error = true;
-            } else {
+            // Insertion Utilisateur
+            $stmt_ins = mysqli_prepare($connect, "INSERT INTO `users` (`username`, `password`, `email`, `avatar`, `role`) VALUES (?, ?, ?, ?, 'User')");
+            mysqli_stmt_bind_param($stmt_ins, "ssss", $reg_username, $password_hashed, $reg_email, $avatar_url);
+            
+            if (mysqli_stmt_execute($stmt_ins)) {
+                // Insertion Newsletter
+                $stmt_news = mysqli_prepare($connect, "INSERT INTO `newsletter` (`email`) VALUES (?)");
+                mysqli_stmt_bind_param($stmt_news, "s", $reg_email);
+                mysqli_stmt_execute($stmt_news);
                 
-                $password_hashed = password_hash($password, PASSWORD_DEFAULT);
+                // Envoi Email
+                $subject = 'Welcome to ' . $settings['sitename'];
+                $message = "<h2>Welcome to {$settings['sitename']}</h2><p>You have successfully registered.</p><p>Username: <b>{$reg_username}</b></p>";
+                $headers = "MIME-Version: 1.0\r\nContent-type: text/html; charset=utf-8\r\nFrom: {$settings['email']}";
+                @mail($reg_email, $subject, $message, $headers);
 
-                // Use prepared statement for user insert
-                $stmt = mysqli_prepare($connect, "INSERT INTO `users` (`username`, `password`, `email`) VALUES (?, ?, ?)");
-                mysqli_stmt_bind_param($stmt, "sss", $username, $password_hashed, $email);
-                mysqli_stmt_execute($stmt);
-                mysqli_stmt_close($stmt);
-
-                // Use prepared statement for newsletter insert
-                $stmt = mysqli_prepare($connect, "INSERT INTO `newsletter` (`email`) VALUES (?)");
-                mysqli_stmt_bind_param($stmt, "s", $email);
-                mysqli_stmt_execute($stmt);
-                mysqli_stmt_close($stmt);
-                
-                $subject = 'Welcome at ' . $settings['sitename'] . '';
-                $message_email = '<a href="' . $settings['site_url'] . '" title="Visit ' . $settings['sitename'] . '" target="_blank">
-                                <h4>' . $settings['sitename'] . '</h4>
-                            </a><br />
-
-                            <h5>You have successfully registered at ' . $settings['sitename'] . '</h5><br /><br />
-
-                            <b>Registration details:</b><br />
-                            Username: <b>' . htmlspecialchars($username) . '</b>';
-                $headers = 'MIME-Version: 1.0' . "\r\n";
-                $headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
-                $headers .= 'To: ' . $email . ' <' . $email . '>' . "\r\n";
-                $headers .= 'From: ' . $settings['email'] . ' <' . $settings['email'] . '>' . "\r\n";
-                @mail($email, $subject, $message_email, $headers);
-                
-                $_SESSION['sec-username'] = $username;
+                // Auto-Login
+                $_SESSION['sec-username'] = $reg_username;
                 echo '<meta http-equiv="refresh" content="0;url=profile">';
+                exit;
+            } else {
+                $error_register = '<div class="alert alert-danger">Database error. Please try again.</div>';
             }
         }
     }
 }
 ?>
-            <form action="" method="post">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                
-                <div class="input-group mb-3">
-                    <span class="input-group-text"><i class="fas fa-user"></i></span>
-                    <input type="username" name="username" class="form-control" placeholder="Username" required>
-                </div>
-				<div class="input-group mb-3">
-                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                    <input type="email" name="email" class="form-control" placeholder="E-Mail Address" required>
-                </div>
-                <div class="input-group mb-3">
-                    <span class="input-group-text"><i class="fas fa-key"></i></span>
-                    <input type="password" name="password" class="form-control" placeholder="Password" required>
-                </div>
-				<div class="g-recaptcha mb-3" data-sitekey="<?php
-echo $settings['gcaptcha_sitekey'];
-?>"></div>
 
-                <button type="submit" name="register" class="btn btn-success col-12 mt-2"><i class="fas fa-sign-in-alt"></i>
-    &nbsp;Sign Up</button>
-            </form> 
-						</div>
-						</div>
+<div class="col-md-8 mb-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-users"></i> Member Area
+        </div>
+        <div class="card-body">
+            <div class="row">
+                
+                <div class="col-md-6 mb-4 border-end-md">
+                    <h4 class="mb-4 text-primary"><i class="fas fa-sign-in-alt"></i> Sign In</h4>
+                    
+                    <div class="d-grid gap-2 mb-4">
+                        <a href="social_callback.php?provider=Google" class="btn btn-outline-danger shadow-sm">
+                            <i class="fab fa-google me-2"></i> Sign in with Google
+                        </a>
+                    </div>
+
+                    <div class="position-relative mb-4">
+                        <hr>
+                        <span class="position-absolute top-50 start-50 translate-middle px-2 bg-white text-muted small">OR</span>
+                    </div>
+
+                    <?php echo $error_login; ?>
+
+                    <form action="" method="post">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                <input type="text" name="username" class="form-control" required <?php if ($is_locked_out) echo 'disabled'; ?>>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="password" name="password" class="form-control" required <?php if ($is_locked_out) echo 'disabled'; ?>>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" name="signin" class="btn btn-primary" <?php if ($is_locked_out) echo 'disabled'; ?>>
+                                Login
+                            </button>
+                        </div>
+                    </form>
                 </div>
+
+                <div class="col-md-6">
+                    <h4 class="mb-4 text-success"><i class="fas fa-user-plus"></i> Create Account</h4>
+                    
+                    <p class="text-muted small mb-3">Join our community to comment, vote and share your own articles!</p>
+
+                    <?php echo $error_register; ?>
+
+                    <form action="" method="post">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Choose Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                <input type="text" name="reg_username" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">Email Address</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                <input type="email" name="reg_email" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                <input type="password" name="reg_password" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <?php if(!empty($settings['gcaptcha_sitekey'])): ?>
+                        <div class="mb-3">
+                            <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($settings['gcaptcha_sitekey']); ?>"></div>
+                        </div>
+                        <?php endif; ?>
+
+                        <div class="d-grid">
+                            <button type="submit" name="register" class="btn btn-success">
+                                Register Now
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
         </div>
     </div>
+</div>
+
 <?php
 if ($settings['sidebar_position'] == 'Right') {
 	sidebar();

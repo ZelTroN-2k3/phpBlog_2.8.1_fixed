@@ -2,8 +2,9 @@
 include "core.php";
 head();
 
+// Afficher la sidebar si configurée à gauche
 if ($settings['sidebar_position'] == 'Left') {
-	sidebar();
+    sidebar();
 }
 
 $slug = $_GET['name'];
@@ -12,153 +13,177 @@ if (empty($slug)) {
     exit();
 }
 
-$runq = mysqli_query($connect, "SELECT * FROM `categories` WHERE slug='$slug'");
+// --- ÉTAPE 1 : Récupération SÉCURISÉE de la catégorie ---
+// On utilise une requête préparée pour éviter les failles SQL
+$stmt = mysqli_prepare($connect, "SELECT * FROM `categories` WHERE slug=?");
+mysqli_stmt_bind_param($stmt, "s", $slug);
+mysqli_stmt_execute($stmt);
+$runq = mysqli_stmt_get_result($stmt);
+
 if (mysqli_num_rows($runq) == 0) {
+    // Si la catégorie n'existe pas, redirection
     echo '<meta http-equiv="refresh" content="0; url=blog">';
     exit();
 }
+
 $rw = mysqli_fetch_assoc($runq);
+mysqli_stmt_close($stmt);
 
 $category_id   = $rw['id'];
 $category_name = $rw['category'];
+$category_desc = $rw['description']; // Nouveau champ
+$category_img  = $rw['image'];       // Nouveau champ
 ?>
-            <div class="col-md-8 mb-3">
 
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white"><i class="far fa-file-alt"></i> Blog - <?php
-echo htmlspecialchars($rw['category']);
-?></div>
-                    <div class="card-body">
+<div class="col-md-8 mb-3">
+
+    <div class="card mb-4 border-0 shadow-sm overflow-hidden">
+        <?php if (!empty($category_img) && file_exists($category_img)): ?>
+            <div style="height: 250px; overflow: hidden;">
+                <img src="<?php echo $category_img; ?>" class="card-img-top" alt="<?php echo htmlspecialchars($category_name); ?>" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
+            </div>
+        <?php endif; ?>
+        
+        <div class="card-body bg-primary text-white rounded-bottom">
+            <h2 class="card-title mb-0"><i class="far fa-folder-open me-2"></i> <?php echo htmlspecialchars($category_name); ?></h2>
+            <?php if (!empty($category_desc)): ?>
+                <hr class="my-2" style="opacity: 0.3;">
+                <p class="card-text" style="font-size: 1.05em; opacity: 0.95;">
+                    <?php echo nl2br(htmlspecialchars($category_desc)); ?>
+                </p>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0 text-muted">Latest articles in <b><?php echo htmlspecialchars($category_name); ?></b></h5>
+        </div>
+        <div class="card-body">
 
 <?php
+// Configuration de la pagination
 $postsperpage = 8;
-
 $pageNum = 1;
+
 if (isset($_GET['page'])) {
-    $pageNum = $_GET['page'];
+    $pageNum = intval($_GET['page']); // Sécurité : force en entier
 }
-if (!is_numeric($pageNum)) {
-    echo '<meta http-equiv="refresh" content="0; url=blog">';
-    exit();
-}
+if ($pageNum < 1) { $pageNum = 1; }
+
 $rows = ($pageNum - 1) * $postsperpage;
 
-$run = mysqli_query($connect, "SELECT * FROM posts WHERE category_id='$category_id' and active='Yes' AND publish_at <= NOW() ORDER BY id DESC LIMIT $rows, $postsperpage");
+// --- ÉTAPE 4 : Récupération SÉCURISÉE des articles ---
+$sql = "SELECT * FROM posts WHERE category_id=? AND active='Yes' AND publish_at <= NOW() ORDER BY id DESC LIMIT ?, ?";
+$stmt = mysqli_prepare($connect, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $category_id, $rows, $postsperpage);
+mysqli_stmt_execute($stmt);
+$run = mysqli_stmt_get_result($stmt);
 $count = mysqli_num_rows($run);
+
 if ($count <= 0) {
-    echo '<div class="alert alert-info">There are no published posts in this category.</div>';
+    echo '<div class="alert alert-info">There are no articles published in this category at the moment.</div>';
 } else {
     while ($row = mysqli_fetch_assoc($run)) {
         
-        $image = "";
+        // Gestion de l'image de l'article
+        $image_post = "";
         if($row['image'] != "") {
-            $image = '<img src="' . htmlspecialchars($row['image']) . '" alt="' . htmlspecialchars($row['title']) . '" class="rounded-start" width="100%" height="100%" style="object-fit: cover;">';
+            $image_post = '<img src="' . htmlspecialchars($row['image']) . '" alt="' . htmlspecialchars($row['title']) . '" class="rounded-start" width="100%" height="200" style="object-fit: cover;">';
         } else {
-            $image = '<svg class="bd-placeholder-img rounded-start" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail" preserveAspectRatio="xMidYMid slice" focusable="false">
-            <title>No Image</title><rect width="100%" height="100%" fill="#55595c"/>
-            <text x="37%" y="50%" fill="#eceeef" dy=".3em">No Image</text></svg>';
+            // Image par défaut (placeholder)
+            $image_post = '<div class="bg-light d-flex align-items-center justify-content-center rounded-start" style="height: 200px; width: 100%; color: #ccc;">
+                        <i class="fas fa-image fa-3x"></i>
+                      </div>';
         }
         
+        // Affichage de la carte Article
         echo '
-                        <div class="card mb-3 border-0 border-bottom">
-                            <div class="row g-0">
-								<div class="col-md-4">
-									<a href="post?name=' . htmlspecialchars($row['slug']) . '">
-										'. $image .'
-									</a>
-								</div>
-								<div class="col-md-8">
-									<div class="card-body py-3">
-										<div class="d-flex justify-content-between align-items-start row">
-											<div class="col-md-12">
-												<a href="post?name=' . htmlspecialchars($row['slug']) . '" class="text-decoration-none">
-													<h5 class="card-title text-primary">' . htmlspecialchars($row['title']) . '</h5>
-												</a>
-											</div>
-										</div>
-										
-										<div class="d-flex justify-content-between align-items-center mb-2">
-											<small class="text-muted">
-												Posted by <b><i><i class="fas fa-user"></i> ' . post_author($row['author_id']) . '</i></b>
-												on <b><i><i class="far fa-calendar-alt"></i> ' . date($settings['date_format'] . ' H:i', strtotime($row['created_at'])) . '</i></b>
-                                                
-                                                <span class="ms-3">
-                                                    <b><i>' . get_reading_time($row['content']) . '</i></b>
-                                                </span>
-                                            </small>
-											<small class="text-muted"><i class="fas fa-comments"></i>
-												<a href="post?name=' . htmlspecialchars($row['slug']) . '#comments" class="blog-comments text-decoration-none"><b>' . post_commentscount($row['id']) . '</b></a>
-											</small>
-										</div>
-										
-										<p class="card-text">' . htmlspecialchars(short_text(strip_tags(html_entity_decode($row['content'])), 200)) . '</p>
-                                        
-                                        <a href="post?name=' . htmlspecialchars($row['slug']) . '" class="btn btn-sm btn-outline-primary mt-2">
-									        Read more
-								        </a>
-									</div>
-								</div>
-							</div>
-						</div>
-';
-    }
-    
-    // --- Pagination ---
-    $query = "SELECT COUNT(id) AS numrows FROM posts WHERE category_id='$category_id' and active='Yes' AND publish_at <= NOW()";
-    $result  = mysqli_query($connect, $query);
-    $row     = mysqli_fetch_array($result);
-    $numrows = $row['numrows'];
-    $maxPage = ceil($numrows / $postsperpage);
-    
-    $pagenums = '';
-    
-    // Encoder le nom de la catégorie pour l'URL
-    $safe_category_name = urlencode($category_name);
-
-    echo '<center class="mt-4">';
-    
-    // Ajout des boutons First/Previous
-    if ($pageNum > 1) {
-        $page     = $pageNum - 1;
-        $previous = "<a href=\"?name=$safe_category_name&page=$page\" class='btn btn-outline-secondary m-1'><i class='fa fa-arrow-left'></i> Previous</a> ";
-        $first = "<a href=\"?name=$safe_category_name&page=1\" class='btn btn-outline-secondary m-1'>First</a> ";
-    } else {
-        $previous = '';
-        $first    = '';
-    }
-    
-    echo $first . $previous;
-
-    // Affichage des numéros de page
-    for ($page = 1; $page <= $maxPage; $page++) {
-        $active_class = ($page == $pageNum) ? 'btn-primary' : 'btn-outline-primary';
-        $pagenums .= "<a href='?name=$safe_category_name&page=$page' class='btn $active_class m-1'>$page</a> ";
-    }
-    echo $pagenums;
-
-    // Ajout des boutons Next/Last
-    if ($pageNum < $maxPage) {
-        $page = $pageNum + 1;
-        $next = "<a href=\"?name=$safe_category_name&page=$page\" class='btn btn-outline-secondary m-1'><i class='fa fa-arrow-right'></i> Next</a> ";
-        $last = "<a href=\"?name=$safe_category_name&page=$maxPage\" class='btn btn-outline-secondary m-1'>Last</a> ";
-    } else {
-        $next = '';
-        $last = '';
-    }
-    
-    echo $next . $last;
-    
-    echo '</center>';
-}
-?>
-
+        <div class="card mb-4 border-0 border-bottom pb-3">
+            <div class="row g-0">
+                <div class="col-md-4">
+                    <a href="post?name=' . htmlspecialchars($row['slug']) . '">
+                        '. $image_post .'
+                    </a>
+                </div>
+                <div class="col-md-8">
+                    <div class="card-body py-2">
+                        <a href="post?name=' . htmlspecialchars($row['slug']) . '" class="text-decoration-none">
+                            <h4 class="card-title text-primary mb-2">' . htmlspecialchars($row['title']) . '</h4>
+                        </a>
+                        
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 text-muted small">
+                            <span>
+                                <i class="fas fa-user me-1"></i> ' . post_author($row['author_id']) . ' &nbsp;&bull;&nbsp;
+                                <i class="far fa-calendar-alt me-1"></i> ' . date($settings['date_format'], strtotime($row['created_at'])) . '
+                            </span>
+                            <span class="badge bg-light text-dark border">
+                                <i class="fas fa-clock me-1"></i> ' . get_reading_time($row['content']) . '
+                            </span>
+                        </div>
+                        
+                        <p class="card-text text-secondary">' . htmlspecialchars(short_text(strip_tags(html_entity_decode($row['content'])), 180)) . '</p>
+                        
+                        <a href="post?name=' . htmlspecialchars($row['slug']) . '" class="btn btn-sm btn-outline-primary">
+                            Lire la suite <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
                     </div>
                 </div>
-                
             </div>
+        </div>';
+    }
+    
+    // --- ÉTAPE 5 : Pagination ---
+    $stmt_count = mysqli_prepare($connect, "SELECT COUNT(id) AS numrows FROM posts WHERE category_id=? AND active='Yes' AND publish_at <= NOW()");
+    mysqli_stmt_bind_param($stmt_count, "i", $category_id);
+    mysqli_stmt_execute($stmt_count);
+    $result_count = mysqli_stmt_get_result($stmt_count);
+    $row_count = mysqli_fetch_assoc($result_count);
+    $numrows = $row_count['numrows'];
+    $maxPage = ceil($numrows / $postsperpage);
+    
+    // Nettoyage des statements
+    mysqli_stmt_close($stmt); 
+    mysqli_stmt_close($stmt_count);
+
+    // Affichage des boutons de pagination
+    if ($maxPage > 1) {
+        $safe_category_slug = urlencode($slug);
+
+        echo '<nav aria-label="Page navigation" class="mt-5"><ul class="pagination justify-content-center">';
+        
+        // Bouton Précédent
+        if ($pageNum > 1) {
+            echo '<li class="page-item"><a class="page-link" href="?name='.$safe_category_slug.'&page='.($pageNum-1).'">&laquo; Previous</a></li>';
+        } else {
+             echo '<li class="page-item disabled"><span class="page-link">&laquo; Previous</span></li>';
+        }
+
+        // Numéros
+        for ($page = 1; $page <= $maxPage; $page++) {
+            $active = ($page == $pageNum) ? 'active' : '';
+            echo '<li class="page-item '.$active.'"><a class="page-link" href="?name='.$safe_category_slug.'&page='.$page.'">'.$page.'</a></li>';
+        }
+
+        // Bouton Suivant
+        if ($pageNum < $maxPage) {
+            echo '<li class="page-item"><a class="page-link" href="?name='.$safe_category_slug.'&page='.($pageNum+1).'">Next &raquo;</a></li>';
+        } else {
+            echo '<li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>';
+        }
+        
+        echo '</ul></nav>';
+    }
+}
+?>
+        </div>
+    </div>
+</div>
+
 <?php
+// Afficher la sidebar si configurée à droite
 if ($settings['sidebar_position'] == 'Right') {
-	sidebar();
+    sidebar();
 }
 footer();
 ?>

@@ -365,6 +365,11 @@ if ($cancomment == 'Yes') {
     echo '<div class="alert alert-info">Please <strong><a href="login"><i class="fas fa-sign-in-alt"></i> Sign In</a></strong> to be able to post a comment.</div>';
 }
 ?>
+
+        <!-- ADVERTISEMENT WIDGET -->
+        <?php render_ad('468x60'); ?> <!-- Affichage de la publicité 468x60 -->
+        <?php render_ad('728x90'); ?> <!-- Affichage de la publicité 728x90 -->
+        <!-- FIN ADVERTISEMENT WIDGET -->
                     </div>
                     </div>
                 </div>

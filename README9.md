@@ -1,59 +1,49 @@
-# Mon CMS - v3.1.0
+# Mon CMS - v3.0.1
 
-Ce projet est un Content Management System (CMS) développé en PHP procédural, moderne et performant.
+Ce projet est un Content Management System (CMS) développé en PHP procédural.
 
-Initialement basé sur une structure simple, il a évolué vers une solution robuste (v3.1.0) intégrant une administration professionnelle basée sur **AdminLTE 3**, un éditeur **Summernote**, et une gestion avancée des médias.
+Initialement basé sur un tutoriel Udemy, il a été considérablement modernisé, sécurisé et étendu avec de nombreuses fonctionnalités personnalisées. L'interface d'administration est propulsée par le template **AdminLTE 3**, l'éditeur de texte par **Summernote**, et les tableaux par **DataTables**.
 
 ---
 
-## 🚀 Dernière version majeure (v3.1.0) - "Admin Pro Update"
+## 🚀 Nouveautés récentes (v3.0.1)
 
-Cette version transforme radicalement l'expérience d'administration en adoptant des standards professionnels d'interface et d'architecture.
+Cette version se concentre sur la stabilité et l'amélioration de l'expérience d'administration.
 
-* **Interface Ergonomique :** Tous les formulaires d'administration (Articles, Pages, Quiz, etc.) adoptent désormais une disposition "Pro" en deux colonnes (Contenu vs Paramètres), inspirée des grands CMS du marché.
-* **Gestion des Médias :** Ajout de la prévisualisation instantanée des images avant upload sur l'ensemble du back-office.
-* **Architecture Propre :** Séparation stricte entre les vues "Liste" et les vues "Édition" pour une meilleure maintenabilité du code.
-* **Module Quiz Avancé :** Interface de gestion des questions/réponses améliorée, statistiques détaillées et choix visuel de la difficulté.
-* **Stabilité :** Correction de la gestion des Tags (doublons) et optimisation des requêtes SQL.
+* **Gestion des bannissements :** Mise en place d'une nouvelle interface pour **personnaliser l'image d'arrière-plan** de la page publique "Banned".
+* **Stabilité :** Refonte complète du système de déconnexion (`logout.php`) pour corriger les erreurs de redirection sur les serveurs de production.
+* **Dashboard Admin :** Optimisation du widget "Raccourcis", désormais replié par défaut pour plus de clarté.
 
 ---
 
 ## ✨ Fonctionnalités Principales
 
 ### Front-office (Partie visible)
-* Affichage des articles de blog avec pagination et système de **Tags** complet.
-* Affichage des pages statiques et formulaires dynamiques.
-* Système de commentaires avec réponses imbriquées (threading).
-* **Module de Quiz** interactif pour les visiteurs.
-* Design responsive (Bootstrap) avec Mode Sombre (Dark Mode).
-* Connexion sociale (Google) et profils utilisateurs avancés.
+* Affichage des articles de blog avec pagination.
+* Affichage des pages statiques.
+* Système de commentaires sur les articles.
+* Formulaire de contact fonctionnel.
+* Barre latérale avec widgets (Recherche, Catégories, etc.).
+* Design responsive (basé sur Bootstrap).
 
 ### Back-office (Administration)
-* **Tableau de bord (Dashboard)** : Statistiques en temps réel et graphiques.
-* **Gestion de Contenu "Pro"** :
-    * **Articles** : Éditeur riche, gestion avancée des tags, image à la une, publication planifiée.
-    * **Pages & Catégories** : Gestion complète avec slugs automatiques.
-* **Modules Spéciaux** :
-    * **Quiz Manager** : Création de quiz, gestion des questions/réponses, statistiques des tentatives joueurs.
-    * **Slider** : Gestionnaire de diapositives avec ordre par glisser-déposer (via ordre numérique).
-    * **Galerie** : Gestion d'albums photos.
-* **Outils Techniques** :
-    * **Maintenance** : Mode maintenance avec page personnalisable et contournement admin.
-    * **Popups** : Gestionnaire de popups marketing.
-    * **RSS** : Importateur de flux automatique.
+* **Tableau de bord (Dashboard)** : Vue d'ensemble et statistiques.
+* **Gestion des Articles** : CRUD complet avec éditeur riche (Summernote) et image à la une.
+* **Gestion des Catégories** : Créer, modifier, supprimer.
+* **Gestion des Pages** : Créer des pages statiques (ex: À propos).
+* **Gestion des Utilisateurs** :
+    * Inscription et connexion sécurisée.
+    * Rôles : Admin et Subscriber.
+    * Système de bannissement avec **page personnalisable**.
+* **Modération des Commentaires** : Approuver ou supprimer les commentaires.
+* **Médiathèque** : Gestion des fichiers uploadés.
+* **Gestionnaire de Menu** : Outil drag-and-drop pour organiser le menu du site.
+* **Gestion des Widgets** : Activer/désactiver les éléments de la sidebar.
+* **Paramètres** : Configuration générale du site.
 
 ---
 
-## 🛠️ Installation
-
-*(Voir la documentation complète pour les détails serveur)*
-
-1.  **Base de données :** Importez `database.sql` dans votre base MySQL.
-2.  **Configuration :** Renommez `includes/db.php.example` en `includes/db.php` et configurez vos accès.
-3.  **Dossiers :** Assurez-vous que le dossier `uploads/` et ses sous-dossiers (`posts`, `gallery`, `quiz`, etc.) sont accessibles en écriture (CHMOD 755 ou 777 selon l'hébergeur).
-4.  **Accès Admin :** `/admin` (Compte par défaut : `admin@admin.com` / `password`)
-
----
+## 🛠️ Installation (Manuelle)
 
 *Note : Un installateur automatique est en cours de développement.*
 
