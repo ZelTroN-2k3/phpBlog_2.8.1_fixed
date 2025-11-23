@@ -1,242 +1,165 @@
 <?php
-// --- SCRIPT D'IMPORTATION RSS (Corrigé pour <media:content>) ---
-
-// 1. Inclure le cœur du CMS (pour BDD, $settings, session_start(), etc.)
+// --- SCRIPT D'IMPORTATION RSS (Design Pro) ---
 include "../core.php";
 
-// Clé secrète pour le cron job.
-// !! CHANGEZ CETTE VALEUR pour quelque chose de long et aléatoire !!
-define('RSS_CRON_SECRET_KEY', '#7dWrR!W@29LxG22wW^b'); // VOTRE_CLE_SECRETE_12345
+// Clé secrète pour le cron job (A définir dans core.php ou ici)
+if(!defined('RSS_CRON_SECRET_KEY')) define('RSS_CRON_SECRET_KEY', '#7dWrR!W@29LxG22wW^b'); 
 
-// Déterminer le mode de fonctionnement
+// Déterminer le mode
 $manual_run_id = $_GET['id'] ?? null;
 $cron_run_key = $_GET['key'] ?? null;
 
-$sql_query = ""; // Initialiser
+$is_cron = false;
+$logs = [];
 
-// 2. GESTION DE LA SÉCURITÉ
+// --- GESTION SÉCURITÉ ---
 if ($manual_run_id) {
-    // --- C'est un test manuel depuis l'admin ---
+    // Mode Manuel (Admin Connecté)
     if (!isset($_SESSION['sec-username'])) {
-        die('Accès non autorisé. (Non connecté)');
+        die('Access Denied. Please login.');
     }
-    
-    $uname = $_SESSION['sec-username'];
-    $stmt_admin_check = mysqli_prepare($connect, "SELECT role FROM `users` WHERE username=? AND role='Admin'");
-    mysqli_stmt_bind_param($stmt_admin_check, "s", $uname);
-    mysqli_stmt_execute($stmt_admin_check);
-    $result_admin_check = mysqli_stmt_get_result($stmt_admin_check);
-    
-    if (mysqli_num_rows($result_admin_check) == 0) {
-        die('Accès non autorisé. (Pas un admin)');
+    // Inclure header pour le design
+    include "header.php";
+} elseif ($cron_run_key) {
+    // Mode Cron (Clé Secrète)
+    $is_cron = true;
+    if ($cron_run_key !== RSS_CRON_SECRET_KEY) {
+        die('Invalid Cron Key.');
     }
-    mysqli_stmt_close($stmt_admin_check);
-    
-    $sql_query = "SELECT * FROM rss_imports WHERE id = " . (int)$manual_run_id;
-
-} elseif ($cron_run_key === RSS_CRON_SECRET_KEY) {
-    // --- C'est un run automatique (cron) ---
-    $sql_query = "SELECT * FROM rss_imports WHERE is_active = 1";
 } else {
-    // --- Accès non autorisé ---
-    die('Accès non autorisé. (Clé ou paramètre manquant)');
+    die('No ID or Key provided.');
 }
 
-
-// 3. Initialiser HTMLPurifier
-$config = HTMLPurifier_Config::createDefault();
-$purifier = new HTMLPurifier($config);
-
-// 4. Fonction (corrigée) pour créer un "slug" (URL-friendly) UNIQUE
-function createUniqueSlug($connect, $string) {
-    // 1. Créer le slug de base
-    $slug = strtolower(strip_tags($string));
-    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
-    $slug = trim($slug, '-');
-    if (empty($slug)) {
-        $slug = 'post-' . time();
-    }
-    
-    // 2. Vérifier les doublons
-    $stmt_check_slug = mysqli_prepare($connect, "SELECT id FROM posts WHERE slug = ?");
-    $original_slug = $slug;
-    $counter = 1;
-    
-    mysqli_stmt_bind_param($stmt_check_slug, "s", $slug);
-    mysqli_stmt_execute($stmt_check_slug);
-    $result = mysqli_stmt_get_result($stmt_check_slug);
-
-    while (mysqli_num_rows($result) > 0) {
-        // Le slug existe, on en crée un nouveau
-        $slug = $original_slug . '-' . $counter;
-        $counter++;
-        
-        // On re-vérifie
-        mysqli_stmt_bind_param($stmt_check_slug, "s", $slug);
-        mysqli_stmt_execute($stmt_check_slug);
-        $result = mysqli_stmt_get_result($stmt_check_slug);
-    }
-    
-    mysqli_stmt_close($stmt_check_slug);
-    return $slug;
+// --- LOGIQUE D'IMPORTATION (Fonction) ---
+function logMsg($msg) {
+    global $logs, $is_cron;
+    if ($is_cron) { echo $msg . "\n"; }
+    else { $logs[] = $msg; }
 }
 
-
-// --- DÉBUT DE L'IMPORTATION ---
-header('Content-Type: text/plain; charset=utf-8'); 
-echo "--- Début de l'importation RSS ---\n\n";
-
-// Augmenter le temps d'exécution
-set_time_limit(300); // 5 minutes
-
-$imported_count = 0;
-$skipped_count = 0;
-$feed_errors = [];
-
-// 5. Déterminer le mode (pour l'affichage)
+// Préparation de la requête
+$sql_query = "";
 if ($manual_run_id) {
-    echo "Mode : Importation manuelle du flux ID: " . (int)$manual_run_id . "\n";
+    $sql_query = "SELECT * FROM rss_imports WHERE id = " . (int)$manual_run_id;
 } else {
-    echo "Mode : Importation automatique de tous les flux actifs.\n";
+    $sql_query = "SELECT * FROM rss_imports WHERE is_active = 1";
 }
-echo "---------------------------------\n";
 
-// 6. Récupérer les flux
-$result_feeds = mysqli_query($connect, $sql_query);
-if (!$result_feeds || mysqli_num_rows($result_feeds) == 0) {
-    echo "Aucun flux à importer.\n";
-} else {
-    while ($feed = mysqli_fetch_assoc($result_feeds)) {
-        
-        $feed_url = $feed['feed_url'];
-        echo "\n[Traitement du flux: " . htmlspecialchars($feed_url) . "]\n";
-        
-        // 7. Charger le flux XML
-        libxml_use_internal_errors(true); 
-        $xml = @simplexml_load_file($feed_url);
-        libxml_clear_errors();
-        
-        if ($xml === false) {
-            echo "ERREUR : Impossible de charger ou de parser ce flux.\n";
-            $feed_errors[] = $feed_url;
-            continue; 
-        }
-        
-        // 8. Préparer les requêtes BDD
-        $stmt_check_guid = mysqli_prepare($connect, "SELECT id FROM posts WHERE imported_guid = ?");
-        
-        // Utiliser 'author_id' (corrigé)
-        $stmt_insert = mysqli_prepare($connect, "
-            INSERT INTO posts (author_id, category_id, title, slug, content, image, created_at, active, publish_at, imported_guid) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'Yes', ?, ?)
-        ");
-        
-        if($stmt_insert === false) {
-            echo "ERREUR : Impossible de préparer la requête d'insertion MySQL : " . mysqli_error($connect) . "\n";
-            continue;
-        }
+$result = mysqli_query($connect, $sql_query);
+$imported_count = 0;
 
-        // 9. Parcourir chaque <item> ou <entry>
-        $items = $xml->channel->item ?? $xml->entry ?? [];
+while ($feed = mysqli_fetch_assoc($result)) {
+    logMsg("Processing Feed: <strong>" . htmlspecialchars($feed['feed_url']) . "</strong>");
+    
+    $xml = @simplexml_load_file($feed['feed_url']);
+    
+    if ($xml === false) {
+        logMsg("<span class='text-danger'>Error: Failed to load XML.</span>");
+        continue;
+    }
+
+    foreach ($xml->channel->item as $item) {
+        $guid = (string)$item->guid;
+        if (empty($guid)) $guid = (string)$item->link;
         
-        if (empty($items)) {
-             echo "Aucun article trouvé dans ce flux.\n";
-             continue;
-        }
-
-        foreach ($items as $item) {
-            
-            // 10. Extraire les données
-            $namespaces = $item->getNamespaces(true);
-            $content_ns = $item->children($namespaces['content'] ?? null);
-            // --- NOUVELLE LIGNE ---
-            $media_ns = $item->children($namespaces['media'] ?? null); // Obtenir le namespace 'media'
-
+        // Vérifier doublon
+        $stmt_check = mysqli_prepare($connect, "SELECT id FROM posts WHERE download_link = ? LIMIT 1");
+        mysqli_stmt_bind_param($stmt_check, "s", $guid); // On utilise download_link pour stocker le GUID temporairement
+        mysqli_stmt_execute($stmt_check);
+        mysqli_stmt_store_result($stmt_check);
+        
+        if (mysqli_stmt_num_rows($stmt_check) == 0) {
+            // Préparation données
             $title = (string)$item->title;
-            $link = (string)$item->link['href'] ?? (string)$item->link;
-            $pubDate = (string)$item->pubDate ?? (string)$item->updated ?? date('Y-m-d H:i:s');
-            $guid = (string)$item->guid ?? (string)$item->id ?? $link; 
-            $description = (string)$content_ns->encoded ?? (string)$item->description ?? (string)$item->summary ?? 'Contenu non disponible.';
+            $content = (string)$item->description;
+            $link = (string)$item->link;
+            $slug = generateSeoURL($title);
             
-            // --- !! BLOC DE RECHERCHE D'IMAGE CORRIGÉ !! ---
+            // Image (Tentative de récupération)
             $image_url = '';
-
-            if (isset($media_ns->content)) {
-                // 1. Priorité : <media:content> (Le Monde, etc.)
-                $attrs = $media_ns->content->attributes();
-                if (isset($attrs['url'])) {
-                     $image_url = (string)$attrs['url'];
+            $namespaces = $item->getNamespaces(true);
+            if (isset($namespaces['media'])) {
+                $media = $item->children($namespaces['media']);
+                if (isset($media->content)) {
+                    $attrs = $media->content->attributes();
+                    $image_url = (string)$attrs['url'];
                 }
             }
             
-            if (empty($image_url) && isset($item->enclosure) && strpos((string)$item->enclosure['type'], 'image') !== false) {
-                // 2. Deuxième choix : <enclosure> (Standard RSS)
-                $image_url = (string)$item->enclosure['url'];
-            } 
-            
-            if (empty($image_url) && preg_match('/<img[^>]+src="([^"]+)"/', $description, $matches)) {
-                // 3. Dernier choix : 1ère image dans la description
-                $image_url = $matches[1];
-            }
-            // --- FIN DU BLOC CORRIGÉ ---
-
-            // 11. Vérifier les doublons de GUID
-            mysqli_stmt_bind_param($stmt_check_guid, "s", $guid);
-            mysqli_stmt_execute($stmt_check_guid);
-            $result_check = mysqli_stmt_get_result($stmt_check_guid);
-            
-            if (mysqli_num_rows($result_check) > 0) {
-                $skipped_count++;
-                continue;
-            }
-            
-            // 12. L'article est nouveau : Nettoyer et Insérer
-            $clean_title = strip_tags($title);
-            $clean_content = $purifier->purify($description); // Sécurité !
-            $slug = createUniqueSlug($connect, $clean_title);
-            $post_time = date('Y-m-d H:i:s', strtotime($pubDate));
-            
-            // Chaîne de types corrigée : 'author_id' (i), 'category_id' (i), ... (iisssssss)
-            mysqli_stmt_bind_param($stmt_insert, "iisssssss", 
-                $feed['import_as_user_id'], 
+            // Insertion
+            $stmt_ins = mysqli_prepare($connect, "INSERT INTO posts (category_id, title, slug, author_id, image, content, active, created_at, publish_at, featured, download_link) VALUES (?, ?, ?, ?, ?, ?, 'Yes', NOW(), NOW(), 'No', ?)");
+            mysqli_stmt_bind_param($stmt_ins, "issssss", 
                 $feed['import_as_category_id'], 
-                $clean_title, 
+                $title, 
                 $slug, 
-                $clean_content, 
+                $feed['import_as_user_id'], 
                 $image_url, 
-                $post_time,      // pour created_at
-                $post_time,      // pour publish_at
+                $content, 
                 $guid
             );
             
-            if (mysqli_stmt_execute($stmt_insert)) {
+            if (mysqli_stmt_execute($stmt_ins)) {
                 $imported_count++;
-                echo "  -> IMPORTÉ : " . $clean_title . "\n";
-            } else {
-                 echo "  -> ERREUR BDD : " . mysqli_error($connect) . "\n";
+                logMsg("<span class='text-success'>+ Imported: $title</span>");
             }
+            mysqli_stmt_close($stmt_ins);
         }
-        
-        // 13. Fermer les requêtes pour ce flux
-        mysqli_stmt_close($stmt_check_guid);
-        mysqli_stmt_close($stmt_insert);
-        
-        // 14. Mettre à jour l'heure de dernière importation
-        $stmt_update_time = mysqli_prepare($connect, "UPDATE rss_imports SET last_import_time = NOW() WHERE id = ?");
-        mysqli_stmt_bind_param($stmt_update_time, "i", $feed['id']);
-        mysqli_stmt_execute($stmt_update_time);
-        mysqli_stmt_close($stmt_update_time);
+        mysqli_stmt_close($stmt_check);
     }
+
+    // Mise à jour timestamp
+    mysqli_query($connect, "UPDATE rss_imports SET last_import_time = NOW() WHERE id = " . $feed['id']);
 }
 
-mysqli_close($connect);
+// --- AFFICHAGE (Mode Manuel uniquement) ---
+if (!$is_cron) {
+?>
 
-// 15. Afficher le rapport final
-echo "\n---------------------------------\n";
-echo "RAPPORT FINAL :\n";
-echo "Nouveaux articles importés : $imported_count\n";
-echo "Articles déjà existants (ignorés) : $skipped_count\n";
-echo "Flux en erreur : " . count($feed_errors) . "\n";
-echo "\n--- Importation terminée. ---";
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0">Import Report</h1>
+                </div>
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="rss_imports.php">Back to Feeds</a></li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <section class="content">
+        <div class="container-fluid">
+            <div class="card card-outline card-success">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-check-circle"></i> Execution Completed</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-light border">
+                        <?php 
+                        if (empty($logs)) {
+                            echo "No active feeds found or database error.";
+                        } else {
+                            foreach($logs as $log) {
+                                echo "<div>$log</div>";
+                            }
+                        }
+                        ?>
+                    </div>
+                    <div class="mt-3">
+                        <strong>Total Items Imported: <?php echo $imported_count; ?></strong>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="rss_imports.php" class="btn btn-primary">Return to List</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <?php include "footer.php"; ?>
+<?php 
+} // Fin mode manuel 
 ?>

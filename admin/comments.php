@@ -164,8 +164,27 @@ if (isset($_GET['edit-id'])) {
                         </thead>
                         <tbody>
 <?php
-$sql    = "SELECT * FROM comments ORDER BY id DESC";
+
+// --- GESTION DU FILTRE (Status) ---
+$where_clause_comments = "";
+$filter_msg = "";
+
+if (isset($_GET['status']) && $_GET['status'] == 'pending') {
+    $where_clause_comments = "WHERE approved = 'No'";
+    $filter_msg = "Pending Approval";
+}
+
+if ($filter_msg) {
+    echo '<div class="alert alert-warning alert-dismissible fade show">
+            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+            <h5><i class="icon fas fa-filter"></i> Moderation Mode</h5>
+            Showing comments: <strong>' . $filter_msg . '</strong>. <a href="comments.php">Show all</a>.
+          </div>';
+}
+
+$sql    = "SELECT * FROM comments $where_clause_comments ORDER BY id DESC";
 $result = mysqli_query($connect, $sql);
+
 while ($row = mysqli_fetch_assoc($result)) {
     $author_name = $row['user_id'];
     $badge  = '';
