@@ -136,8 +136,49 @@ document.addEventListener('DOMContentLoaded', function () {
         .then((response) => response.json())
         .then((data) => {
           if (data.success) {
-            formMessages.innerHTML =
-              '<div class="alert alert-success">' + data.message + '</div>';
+            
+            // --- MODIFICATION ICI : Gestion de la modération ---
+            if (data.moderation === true) {
+                // CAS 1 : En attente de modération (Message JAUNE)
+                formMessages.innerHTML = '<div class="alert alert-warning"><i class="fas fa-clock"></i> ' + data.message + '</div>';
+            
+            } else {
+                // CAS 2 : Publié directement (Message VERT)
+                formMessages.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> ' + data.message + '</div>';
+                
+                // Insertion du HTML du nouveau commentaire
+                if (data.html) {
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = data.html;
+                  const newCommentElement = tempDiv.firstElementChild;
+    
+                  if (data.parent_id == 0) {
+                    commentListContainer.appendChild(newCommentElement);
+                    const noCommentsAlert = document.getElementById('no-comments-alert');
+                    if (noCommentsAlert) noCommentsAlert.style.display = 'none';
+                  } else {
+                    const parentElement = document.getElementById('comment-' + data.parent_id);
+                    if (parentElement) {
+                      parentElement.appendChild(newCommentElement);
+                    }
+                  }
+    
+                  // Animer l'apparition
+                  setTimeout(() => {
+                    if (newCommentElement) {
+                      newCommentElement.style.opacity = 1;
+                      newCommentElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                      });
+                    }
+                  }, 10);
+    
+                  // Mettre à jour le compteur total
+                  updateGlobalCommentCount();
+                }
+            }
+            // --- FIN MODIFICATION ---
 
             mainForm.reset();
             const charCount = document.getElementById('characters');
@@ -152,48 +193,17 @@ document.addEventListener('DOMContentLoaded', function () {
               }
             }
 
-            // Afficher le commentaire si la modération n'est pas active
-            if (
-              (data.moderation === false ||
-                typeof data.moderation === 'undefined') &&
-              data.html
-            ) {
-              const tempDiv = document.createElement('div');
-              tempDiv.innerHTML = data.html;
-              const newCommentElement = tempDiv.firstElementChild;
-
-              if (data.parent_id == 0) {
-                commentListContainer.appendChild(newCommentElement);
-                const noCommentsAlert =
-                  document.getElementById('no-comments-alert');
-                if (noCommentsAlert) noCommentsAlert.style.display = 'none';
-              } else {
-                const parentElement = document.getElementById(
-                  'comment-' + data.parent_id
-                );
-                if (parentElement) {
-                  parentElement.appendChild(newCommentElement);
-                }
-              }
-
-              // Animer l'apparition
-              setTimeout(() => {
-                if (newCommentElement) {
-                  newCommentElement.style.opacity = 1;
-                  newCommentElement.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  });
-                }
-              }, 10);
-
-              // Mettre à jour le compteur total
-              updateGlobalCommentCount();
+            // Réinitialiser et déplacer le formulaire (sauf si on veut laisser le msg de modération visible à cet endroit)
+            // On attend un peu pour que l'utilisateur voie le message avant de reset le formulaire
+            if(data.moderation !== true) {
+                cancelReply();
+            } else {
+                // Si modération, on remet juste le parentId à 0 mais on laisse le message affiché
+                 parentIdInput.value = '0';
             }
-
-            // Réinitialiser et déplacer le formulaire
-            cancelReply();
+            
           } else {
+            // ERREUR (Message ROUGE)
             formMessages.innerHTML =
               '<div class="alert alert-danger">' + data.message + '</div>';
 
