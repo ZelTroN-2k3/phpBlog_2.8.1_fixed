@@ -11,6 +11,10 @@ class ComposerStaticInit66501ca8fa27c2f60c8a58c36c7c5686
     );
 
     public static $prefixLengthsPsr4 = array (
+        'P' => 
+        array (
+            'PHPMailer\\PHPMailer\\' => 20,
+        ),
         'H' => 
         array (
             'Hybridauth\\' => 11,
@@ -18,6 +22,10 @@ class ComposerStaticInit66501ca8fa27c2f60c8a58c36c7c5686
     );
 
     public static $prefixDirsPsr4 = array (
+        'PHPMailer\\PHPMailer\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
+        ),
         'Hybridauth\\' => 
         array (
             0 => __DIR__ . '/..' . '/hybridauth/hybridauth/src',
