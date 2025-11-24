@@ -14,11 +14,12 @@ try {
     $database_password = $_SESSION['database_password'] ?? null;
     $database_name     = $_SESSION['database_name'] ?? null;
     $username          = $_SESSION['username'] ?? null;
-    $email             = $_SESSION['email'] ?? null;
+    $email             = $_SESSION['email'] ?? null;      // Email Admin (table users)
+    $site_email        = $_SESSION['site_email'] ?? null; // Email Site (table settings)
     $raw_password      = $_SESSION['password'] ?? null;
 
     // 2. Vérifier si les données de session essentielles sont présentes
-    if (!$database_host || !$database_name || !$database_username || !$username || !$email || !$raw_password) {
+    if (!$database_host || !$database_name || !$database_username || !$username || !$email || !$site_email || !$raw_password) {
         throw new Exception("Session expirée ou données manquantes. Veuillez recommencer l'installation depuis le début.");
     }
     
@@ -72,7 +73,7 @@ try {
     // MISE À JOUR : Mettre à jour site_url et email dans la BDD (MAINTENANT EN 1 REQUÊTE)
     // On met à jour la ligne unique où id = 1
     $stmt_update = $db->prepare("UPDATE `settings` SET `site_url` = ?, `email` = ? WHERE `id` = 1");
-    $stmt_update->bind_param("ss", $site_url, $email);
+    $stmt_update->bind_param("ss", $site_url, $site_email); // <-- UTILISATION DE $site_email
     $stmt_update->execute();
     $stmt_update->close();
     // --- FIN DE LA MODIFICATION ---
