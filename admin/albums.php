@@ -1,21 +1,24 @@
 <?php
 include "header.php";
 
+// --- LOGIQUE DE SUPPRESSION ---
 if (isset($_GET['delete-id'])) {
-    $id    = (int) $_GET["delete-id"];
+    validate_csrf_token_get();
+    $id = (int)$_GET['delete-id'];
 
-    // Corrected table name from galery to gallery and using prepared statements
-    $stmt = mysqli_prepare($connect, "DELETE FROM `gallery` WHERE album_id=?");
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
+    // 1. Supprimer les images de la galerie liées à cet album
+    // (Optionnel : Vous pourriez aussi vouloir supprimer les fichiers physiques ici si besoin)
+    $stmt_imgs = mysqli_prepare($connect, "DELETE FROM `gallery` WHERE album_id=?");
+    mysqli_stmt_bind_param($stmt_imgs, "i", $id);
+    mysqli_stmt_execute($stmt_imgs);
+    mysqli_stmt_close($stmt_imgs);
 
-    $stmt = mysqli_prepare($connect, "DELETE FROM `albums` WHERE id=?");
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
+    // 2. Supprimer l'album
+    $stmt_alb = mysqli_prepare($connect, "DELETE FROM `albums` WHERE id=?");
+    mysqli_stmt_bind_param($stmt_alb, "i", $id);
+    mysqli_stmt_execute($stmt_alb);
+    mysqli_stmt_close($stmt_alb);
     
-    // Rediriger pour nettoyer l'URL
     echo '<meta http-equiv="refresh" content="0; url=albums.php">';
     exit;
 }
@@ -25,7 +28,7 @@ if (isset($_GET['delete-id'])) {
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-sm-6">
-                <h1 class="m-0"><i class="fas fa-list-ol"></i> Albums</h1>
+                <h1 class="m-0"><i class="fas fa-folder-open"></i> Albums</h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
@@ -36,102 +39,77 @@ if (isset($_GET['delete-id'])) {
         </div>
     </div>
 </div>
+
 <section class="content">
     <div class="container-fluid">
-	  
-<?php
-if (isset($_GET['edit-id'])) {
-    $id  = (int) $_GET["edit-id"];
-
-    // Use prepared statement for SELECT
-    $stmt = mysqli_prepare($connect, "SELECT * FROM `albums` WHERE id = ?");
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    $sql = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($sql);
-    mysqli_stmt_close($stmt);
-
-    if (empty($id) || !$row) {
-        echo '<meta http-equiv="refresh" content="0; url=albums.php">';
-        exit;
-    }
-    
-    if (isset($_POST['submit'])) {
-        // --- NOUVEL AJOUT : Validation CSRF ---
-        validate_csrf_token();
-        // --- FIN AJOUT ---
-        
-        $title = $_POST['title'];
-
-        // Use prepared statement for UPDATE
-        $stmt = mysqli_prepare($connect, "UPDATE albums SET title=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt, "si", $title, $id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-
-        echo '<meta http-equiv="refresh" content="0; url=albums.php">';
-    }
-?>
-            <div class="card card-primary card-outline mb-3">
-              <div class="card-header">
-                <h3 class="card-title">Edit Album</h3>
-              </div>         
-                  <form action="" method="post">
+        <div class="row">
+            <div class="col-12">
+                
+                <div class="card card-primary card-outline">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <a href="add_album.php" class="btn btn-primary btn-sm">
+                                <i class="fa fa-plus"></i> Add Album
+                            </a>
+                        </h3>
+                    </div>
+                    
                     <div class="card-body">
-                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                        <div class="form-group">
-                            <label>Title</label>
-                            <input class="form-control" name="title" type="text" value="<?php
-    echo htmlspecialchars($row['title']); // Prevent XSS
-?>" required>
-                        </div>
+                        <table id="dt-albums" class="table table-bordered table-hover table-striped" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;" class="text-center">ID</th>
+                                    <th>Album Title</th>
+                                    <th class="text-center">Images Count</th>
+                                    <th class="text-center" style="width: 150px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                // Requête pour lister les albums avec le compte d'images
+                                $query = "
+                                    SELECT a.*, COUNT(g.id) as image_count 
+                                    FROM albums a 
+                                    LEFT JOIN gallery g ON a.id = g.album_id 
+                                    GROUP BY a.id 
+                                    ORDER BY a.id DESC
+                                ";
+                                $result = mysqli_query($connect, $query);
+                                
+                                while ($row = mysqli_fetch_assoc($result)) {
+                                    echo '<tr>
+                                        <td class="text-center">' . $row['id'] . '</td>
+                                        <td><strong>' . htmlspecialchars($row['title']) . '</strong></td>
+                                        <td class="text-center"><span class="badge badge-info">' . $row['image_count'] . '</span></td>
+                                        <td class="text-center">
+                                            <a href="edit_album.php?id=' . $row['id'] . '" class="btn btn-primary btn-sm mr-1" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="?delete-id=' . $row['id'] . '&token=' . $csrf_token . '" class="btn btn-danger btn-sm" onclick="return confirm(\'WARNING: Deleting this album will DELETE ALL linked images in the gallery database. Continue?\');" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </td>
+                                    </tr>';
+                                }
+                                ?>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="card-footer">
-                        <input type="submit" class="btn btn-primary" name="submit" value="Save" />
-                        <a href="albums.php" class="btn btn-secondary">Annuler</a>
-                    </div>
-                  </form>
-            </div>
-<?php
-}
-?>
-
-            <div class="card">
-              <div class="card-header">
-                <h3 class="card-title">
-                    <a href="add_album.php" class="btn btn-primary"><i class="fa fa-plus"></i> Add Album</a>
-                </h3>
-              </div>         
-                <div class="card-body">
-                    <table class="table table-bordered table-hover" id="dt-basic" style="width:100%">
-                        <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-<?php
-$sql    = "SELECT * FROM albums ORDER BY title ASC";
-$result = mysqli_query($connect, $sql);
-while ($row = mysqli_fetch_assoc($result)) {
-        echo '
-                <tr>
-	                <td>' . htmlspecialchars($row['title']) . '</td>
-					<td>
-					    <a href="?edit-id=' . $row['id'] . '" class="btn btn-primary btn-sm"><i class="fa fa-edit"></i> Edit</a>
-						<a href="?delete-id=' . $row['id'] . '&token=' . $csrf_token . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure you want to delete this album? This will also delete all associated images in the gallery.\');"><i class="fa fa-trash"></i> Delete</a>
-					</td>
-                </tr>
-';
-}
-?>
-                        </tbody>
-                    </table>
                 </div>
+                
             </div>
+        </div>
+    </div>
+</section>
 
-    </div></section>
-<?php
-include "footer.php";
-?>
+<?php include "footer.php"; ?>
+
+<script>
+$(document).ready(function() {
+    $('#dt-albums').DataTable({
+        "responsive": true,
+        "autoWidth": false,
+        "order": [[ 0, "desc" ]] 
+    });
+});
+</script>

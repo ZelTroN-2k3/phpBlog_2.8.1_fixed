@@ -1,16 +1,16 @@
 <?php
 include "header.php";
 
+// --- LOGIQUE : Suppression ---
 if (isset($_GET['delete-id'])) {
-    $id    = (int) $_GET["delete-id"];
+    validate_csrf_token_get(); // Sécurité CSRF sur GET
+    $id = (int) $_GET["delete-id"];
     
-    // Use prepared statement for DELETE
     $stmt = mysqli_prepare($connect, "DELETE FROM `comments` WHERE id=?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
     
-    // Rediriger pour nettoyer l'URL
     echo '<meta http-equiv="refresh" content="0; url=comments.php">';
     exit;
 }
@@ -32,225 +32,158 @@ if (isset($_GET['delete-id'])) {
         </div>
     </div>
 </div>
+
 <section class="content">
     <div class="container-fluid">
 
-<?php
-if (isset($_GET['edit-id'])) {
-    $id  = (int) $_GET["edit-id"];
+        <div class="card card-primary card-outline">
+            <div class="card-header">
+                <h3 class="card-title">Comments List</h3>
+                <div class="card-tools">
+                    <a href="comments.php" class="btn btn-sm btn-default">All</a>
+                    <a href="comments.php?status=pending" class="btn btn-sm btn-warning">Pending</a>
+                </div>
+            </div>         
+            <div class="card-body">
 
-    // Use prepared statement for SELECT
-    $stmt = mysqli_prepare($connect, "SELECT * FROM `comments` WHERE id = ?");
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    $sql = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($sql);
-    mysqli_stmt_close($stmt);
+                <?php
+                // --- GESTION DU FILTRE (Status) ---
+                $where_clause_comments = "";
+                $filter_msg = "";
 
-    if (empty($id) || !$row) {
-        echo '<meta http-equiv="refresh" content="0; url=comments.php">';
-        exit;
-    }
-    
-    $author_name = $row['user_id'];
-    $avatar = 'assets/img/avatar.png'; // Valeur par défaut
-    
-    if ($row['guest'] == 'Yes') {
-        $avatar = 'assets/img/avatar.png';
-        $author_name = $row['user_id']; // Le nom de l'invité
-    } else {
-        // Use prepared statement to get user info
-        $stmt_user = mysqli_prepare($connect, "SELECT * FROM `users` WHERE id=? LIMIT 1");
-        mysqli_stmt_bind_param($stmt_user, "i", $author_name);
-        mysqli_stmt_execute($stmt_user);
-        $querych = mysqli_stmt_get_result($stmt_user);
-        if (mysqli_num_rows($querych) > 0) {
-            $rowch = mysqli_fetch_assoc($querych);
-            $avatar = $rowch['avatar'];
-            $author_name = $rowch['username'];
-        }
-        mysqli_stmt_close($stmt_user);
-    }
-    
-    if (isset($_POST['submit'])) {
-        // --- NOUVEL AJOUT : Validation CSRF ---
-        validate_csrf_token();
-        // --- FIN AJOUT ---
-        
-        $approved = $_POST['approved'];
+                if (isset($_GET['status']) && $_GET['status'] == 'pending') {
+                    $where_clause_comments = "WHERE approved = 'No'";
+                    $filter_msg = "Pending Approval";
+                }
 
-        // Use prepared statement for UPDATE
-        $stmt_update = mysqli_prepare($connect, "UPDATE comments SET approved=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt_update, "si", $approved, $id);
-        mysqli_stmt_execute($stmt_update);
-        mysqli_stmt_close($stmt_update);
-        
-        echo '<meta http-equiv="refresh" content="0; url=comments.php">';
-    }
-?>
-            <div class="card card-primary card-outline mb-3">
-              <div class="card-header">
-                  <h3 class="card-title">Edit Comment</h3>
-              </div>         
-                <form action="" method="post">
-                <div class="card-body">
-					<input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                    <div class="form-group">
-						<label>Author</label><br />
-						<input class="form-control" name="author" type="text" value="<?php
-    echo htmlspecialchars($author_name); // Prevent XSS
-?>" disabled>
-					</div>
-					<div class="form-group">
-                        <label>Avatar</label><br />
-                        <?php
-                        // --- DÉBUT CORRECTION BUG AVATAR GOOGLE ---
-                        $avatar_path = $avatar;
-                        if (strpos($avatar, 'http://') !== 0 && strpos($avatar, 'https://') !== 0) {
-                            $avatar_path = '../' . htmlspecialchars($avatar);
+                if ($filter_msg) {
+                    echo '<div class="alert alert-warning alert-dismissible fade show">
+                            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                            <h5><i class="icon fas fa-filter"></i> Moderation Mode</h5>
+                            Showing comments: <strong>' . $filter_msg . '</strong>. <a href="comments.php">Show all</a>.
+                          </div>';
+                }
+                ?>
+
+                <table class="table table-bordered table-hover table-striped" id="dt-basic" style="width:100%">
+                    <thead>
+                    <tr>
+                        <th>Author</th>
+                        <th>Date</th>
+                        <th class="text-center">Status</th>
+                        <th>Post</th>
+                        <th>Comment</th>
+                        <th class="text-center" style="width: 140px;">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php
+                    $sql = "SELECT * FROM comments $where_clause_comments ORDER BY id DESC";
+                    $result = mysqli_query($connect, $sql);
+
+                    while ($row = mysqli_fetch_assoc($result)) {
+                        
+                        // --- 1. Récupération Infos Auteur ---
+                        $author_name = $row['user_id'];
+                        $badge  = '';
+                        $avatar = 'assets/img/avatar.png'; // Fallback
+
+                        if ($row['guest'] == 'Yes') {
+                            $author_name = $row['user_id'];
+                            $badge  = ' <span class="badge bg-secondary">Guest</span>';
+                        } else {
+                            $stmt_user = mysqli_prepare($connect, "SELECT * FROM `users` WHERE id=? LIMIT 1");
+                            mysqli_stmt_bind_param($stmt_user, "i", $row['user_id']);
+                            mysqli_stmt_execute($stmt_user);
+                            $querych = mysqli_stmt_get_result($stmt_user);
+                            
+                            if ($user_row = mysqli_fetch_assoc($querych)) {
+                                $avatar = $user_row['avatar'];
+                                $author_name = $user_row['username'];
+                                
+                                if ($user_row['role'] == 'Admin') {
+                                    $badge = ' <span class="badge bg-danger">Admin</span>';
+                                } elseif ($user_row['role'] == 'Editor') {
+                                    $badge = ' <span class="badge bg-success">Editor</span>';
+                                } else {
+                                    $badge = ' <span class="badge bg-primary">User</span>';
+                                }
+                            }
+                            mysqli_stmt_close($stmt_user);
                         }
-                        // --- FIN CORRECTION BUG AVATAR GOOGLE ---
-                        ?>
-						<img src="<?php echo htmlspecialchars($avatar_path); ?>" width="50px" height="50px" class="img-circle elevation-2 mb-2" /><br />
-					</div>
-					<div class="form-group">
-						<label>Approved</label>
-						<select class="form-control" name="approved" required>
-							<option value="Yes" <?php
-    if ($row['approved'] == "Yes") {
-        echo 'selected';
-    }
-?>>Yes</option>
-							<option value="No" <?php
-    if ($row['approved'] == "No") {
-        echo 'selected';
-    }
-?>>No</option>
-						</select>
-					</div>
-					<div class="form-group">
-						<label>Comment (Read Only)</label>
-						<textarea name="comment" class="form-control" rows="6" disabled><?php
-    echo htmlspecialchars($row['comment']); // Prevent XSS
-?></textarea>
-					</div>
-                </div>
-                <div class="card-footer">
-					<input type="submit" class="btn btn-primary" name="submit" value="Update" />
-                    <a href="comments.php" class="btn btn-secondary">Annuler</a>
-                </div>
-				</form>
-            </div>
-<?php
-}
-?>
-			
-			<div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Comments List</h3>
-                </div>         
-                <div class="card-body">
 
-                    <table class="table table-bordered table-hover" id="dt-basic" style="width:100%">
-                        <thead>
+                        // --- 2. Récupération Infos Post ---
+                        $post_title = '<span class="text-muted text-sm">Deleted Post</span>';
+                        $post_id = $row['post_id'];
+                        
+                        $stmt_post = mysqli_prepare($connect, "SELECT title, slug FROM `posts` WHERE id=?");
+                        mysqli_stmt_bind_param($stmt_post, "i", $post_id);
+                        mysqli_stmt_execute($stmt_post);
+                        $res_post = mysqli_stmt_get_result($stmt_post);
+                        if ($p_row = mysqli_fetch_assoc($res_post)) {
+                            $post_title = '<a href="../post?name=' . htmlspecialchars($p_row['slug']) . '" target="_blank" title="View Post">' . htmlspecialchars($p_row['title']) . ' <i class="fas fa-external-link-alt small"></i></a>';
+                        }
+                        mysqli_stmt_close($stmt_post);
+
+                        // --- 3. Correction Avatar ---
+                        $avatar_path = $avatar;
+                        if (strpos($avatar, 'http') !== 0) {
+                            $avatar_path = '../' . $avatar;
+                        }
+
+                        // --- 4. Statut Badge ---
+                        $status_badge = ($row['approved'] == "Yes") 
+                            ? '<span class="badge badge-success">Approved</span>' 
+                            : '<span class="badge badge-warning">Pending</span>';
+
+                        // --- 5. Affichage Ligne ---
+                        echo '
                         <tr>
-                            <th>Author</th>
-                            <th>Date</th>
-                            <th>Approved</th>
-                            <th>Post</th>
-                            <th>Comment</th>
-                            <th>Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-<?php
-$sql    = "SELECT * FROM comments ORDER BY id DESC";
-$result = mysqli_query($connect, $sql);
-while ($row = mysqli_fetch_assoc($result)) {
-    $author_name = $row['user_id'];
-    $badge  = '';
-    if ($row['guest'] == 'Yes') {
-        $avatar = 'assets/img/avatar.png';
-        $author_name = $row['user_id']; // Utilise le nom de l'invité
-        $badge  = ' <span class="badge bg-info"><i class="fas fa-user"></i> Guest</span>';
-        
-    } else {
-        $stmt_user = mysqli_prepare($connect, "SELECT * FROM `users` WHERE id=? LIMIT 1");
-        mysqli_stmt_bind_param($stmt_user, "i", $author_name);
-        mysqli_stmt_execute($stmt_user);
-        $querych = mysqli_stmt_get_result($stmt_user);
-        if (mysqli_num_rows($querych) > 0) {
-            $rowch = mysqli_fetch_assoc($querych);
-            $avatar = $rowch['avatar'];
-            $author_name = $rowch['username'];
-            
-            // Logique de badge de rôle manquante ajoutée ici
-            if ($rowch['role'] == 'Admin') {
-                $badge = ' <span class="badge bg-danger">Admin</span>';
-            } elseif ($rowch['role'] == 'Editor') {
-                $badge = ' <span class="badge bg-success">Editor</span>';
-            } else {
-                $badge = ' <span class="badge bg-primary">User</span>';
-            }
-        }
-        mysqli_stmt_close($stmt_user);
-    }
-
-    $post_title = 'N/A';
-    $post_id = $row['post_id'];
-    $stmt_post = mysqli_prepare($connect, "SELECT title FROM `posts` WHERE id=?");
-    mysqli_stmt_bind_param($stmt_post, "i", $post_id);
-    mysqli_stmt_execute($stmt_post);
-    $runq2 = mysqli_stmt_get_result($stmt_post);
-    if($sql2 = mysqli_fetch_assoc($runq2)){
-        $post_title = $sql2['title'];
-    }
-    mysqli_stmt_close($stmt_post);
-
-    // --- DÉBUT CORRECTION BUG AVATAR GOOGLE ---
-    $avatar_path = $avatar;
-    if (strpos($avatar, 'http://') !== 0 && strpos($avatar, 'https://') !== 0) {
-        $avatar_path = '../' . htmlspecialchars($avatar);
-    }
-    // --- FIN CORRECTION BUG AVATAR GOOGLE ---
-
-    echo '
-                <tr>
-	                <td><img src="' . htmlspecialchars($avatar_path) . '" width="45px" height="45px" class="img-circle elevation-2" /> ' . htmlspecialchars($author_name) . '' . $badge . '</td>
-	                <td data-sort="' . strtotime($row['created_at']) . '">' . date($settings['date_format'] . ' H:i', strtotime($row['created_at'])) . '</td>
-					<td>';
-	if($row['approved'] == "Yes") {
-		echo '<span class="badge bg-success">Yes</span>';
-	} else {
-		echo '<span class="badge bg-danger">No</span>';
-	}
-	echo '</td>';
-    echo '              <td>' . htmlspecialchars($post_title) . '</td>
-					<td>' . htmlspecialchars(short_text($row['comment'], 50)) . '</td>
-					<td>
-					    <a href="?edit-id=' . $row['id'] . '" title="View / Edit" class="btn btn-primary btn-sm"><i class="fa fa-edit"></i> View / Edit</a>
-						<a href="?delete-id=' . $row['id'] . '&token=' . $csrf_token . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure you want to delete this comment?\');"><i class="fa fa-trash"></i> Delete</a>
-					</td>
-                </tr>
-';
-}
-?>
-                        </tbody>
-                    </table>
-                </div>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="' . htmlspecialchars($avatar_path) . '" class="img-circle elevation-1 mr-2" style="width:35px; height:35px; object-fit:cover;">
+                                    <div>
+                                        <strong>' . htmlspecialchars($author_name) . '</strong><br>
+                                        ' . $badge . '
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-sort="' . strtotime($row['created_at']) . '">
+                                <small>' . date($settings['date_format'], strtotime($row['created_at'])) . '</small><br>
+                                <small class="text-muted">' . date('H:i', strtotime($row['created_at'])) . '</small>
+                            </td>
+                            <td class="text-center">' . $status_badge . '</td>
+                            <td>' . $post_title . '</td>
+                            <td><small>' . htmlspecialchars(short_text($row['comment'], 60)) . '</small></td>
+                            <td class="text-center">
+                                <a href="edit_comment.php?id=' . $row['id'] . '" class="btn btn-info btn-sm" title="Edit">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </a>
+                                <a href="?delete-id=' . $row['id'] . '&token=' . $_SESSION['csrf_token'] . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure you want to delete this comment?\');" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>';
+                    }
+                    ?>
+                    </tbody>
+                </table>
             </div>
-	</section>
+        </div>
+    </div>
+</section>
+
 <script>
 $(document).ready(function() {
-    // Activation de DataTables avec ordre par défaut descendant (colonne 1: Date)
-	$('#dt-basic').DataTable({
+    $('#dt-basic').DataTable({
         "responsive": true,
-        "lengthChange": false, 
         "autoWidth": false,
-		"order": [[ 1, "desc" ]] 
-	});
+        "order": [[ 1, "desc" ]], // Trier par date décroissante
+        "columnDefs": [
+            { "orderable": false, "targets": 5 } // Désactiver le tri sur la colonne Actions
+        ]
+    });
 });
 </script>
-<?php
-include "footer.php";
-?>
+
+<?php include "footer.php"; ?>

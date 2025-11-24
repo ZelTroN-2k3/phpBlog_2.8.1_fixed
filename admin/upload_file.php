@@ -2,70 +2,56 @@
 include "header.php";
 
 if (isset($_POST['upload'])) {
-    
-    // --- NOUVEL AJOUT : Validation CSRF ---
     validate_csrf_token();
-    // --- FIN AJOUT ---
+    
+    // Configuration
+    $target_dir = "../uploads/files/"; // Assurez-vous que ce dossier existe
+    if (!file_exists($target_dir)) { mkdir($target_dir, 0777, true); }
 
-    $file     = $_FILES['file'];
-    $tmp_name = $_FILES['file']['tmp_name'];
-    $name     = $_FILES['file']['name'];
+    $file = $_FILES['file'];
+    $filename = basename($file['name']);
+    // Nettoyage du nom de fichier (sécurité)
+    $filename = preg_replace("/[^a-zA-Z0-9._-]/", "_", $filename);
     
-    $format = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        $allowed_formats = ["png", "gif", "jpeg", "jpg", "bmp", "doc", "docx", "pdf", "txt", "rar", "zip", "odt", "rtf", "csv", "ods", "xls", "xlsx", "odp", "ppt", "pptx", "mp3", "flac", "wav", "wma", "aac", "m4a", "mov", "avi", "mkv", "mp4", "wmv", "webm", "ts", "webp"];
-        $allowed_mime_types = [
-            'png' => 'image/png', 'gif' => 'image/gif', 'jpeg' => 'image/jpeg', 'jpg' => 'image/jpeg', 'bmp' => 'image/bmp', 'webp' => 'image/webp',
-            'doc' => 'application/msword', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'pdf' => 'application/pdf', 'txt' => 'text/plain',
-            'rar' => 'application/x-rar-compressed', 'zip' => 'application/zip', 'odt' => 'application/vnd.oasis.opendocument.text', 'rtf' => 'application/rtf',
-            'csv' => 'text/csv', 'ods' => 'application/vnd.oasis.opendocument.spreadsheet', 'xls' => 'application/vnd.ms-excel', 'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'odp' => 'application/vnd.oasis.opendocument.presentation', 'ppt' => 'application/vnd.ms-powerpoint', 'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'mp3' => 'audio/mpeg', 'flac' => 'audio/x-flac', 'wav' => 'audio/wav', 'wma' => 'audio/x-ms-wma', 'aac' => 'audio/aac', 'm4a' => 'audio/mp4',
-            'mov' => 'video/quicktime', 'avi' => 'video/x-msvideo', 'mkv' => 'video/x-matroska', 'mp4' => 'video/mp4', 'wmv' => 'video/x-ms-wmv', 'webm' => 'video/webm', 'ts' => 'video/mp2t'
-        ];
+    $target_file = $target_dir . $filename;
+    $file_ext = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
     
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime_type = finfo_file($finfo, $tmp_name);
-        finfo_close($finfo);
-    
-        $upload_successful = false;
-    
-        // Vérification de la taille du fichier (par exemple, 10 Mo max)
-        if ($_FILES['file']['size'] > 10485760) { // 10 * 1024 * 1024
-            echo '<div class="alert alert-danger alert-dismissible">
-                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                    <h5><i class="icon fas fa-ban"></i> Error!</h5>
-                    The file is too large. The limit is 10 MB.
-                  </div>';
-        } else if (!in_array($format, $allowed_formats) || (isset($allowed_mime_types[$format]) && $allowed_mime_types[$format] !== $mime_type)) {
-            echo '<div class="alert alert-danger alert-dismissible">
-                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                    <h5><i class="icon fas fa-ban"></i> Error!</h5>
-                    The file type (.$format / $mime_type) is invalid or does not match its content.
-                  </div>';
-        } else {        $string     = "0123456789wsderfgtyhjuk";
-        $new_string = str_shuffle($string);
-        // Le chemin est relatif au dossier du projet (un niveau au-dessus de /admin)
-        $location   = "uploads/other/file_$new_string.$format"; 
-        
-        // move_uploaded_file a besoin du chemin absolu ou relatif à l'exécution
-        if (move_uploaded_file($tmp_name, '../' . $location)) { 
-            $stmt = mysqli_prepare($connect, "INSERT INTO `files` (filename, path, created_at) VALUES (?, ?, NOW())");
-            mysqli_stmt_bind_param($stmt, "ss", $name, $location);
-            mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
-            $upload_successful = true;
-        } else {
-             echo '<div class="alert alert-danger alert-dismissible">
-                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                    <h5><i class="icon fas fa-ban"></i> Error!</h5>
-                    Failed to move the uploaded file. Check folder permissions.
-                  </div>';
+    // Liste complète des extensions autorisées (selon votre demande)
+    $allowed_extensions = [
+        'png', 'gif', 'jpg', 'jpeg', 'bmp', 'webp', // Images
+        'doc', 'docx', 'pdf', 'txt', 'odt', 'rtf', 'csv', 'ods', 'xls', 'xlsx', 'odp', 'ppt', 'pptx', // Docs
+        'rar', 'zip', // Archives
+        'mp3', 'flac', 'wav', 'wma', 'aac', 'm4a', // Audio
+        'mov', 'avi', 'mkv', 'mp4', 'wmv', 'webm', 'ts' // Video
+    ];
+
+    if (!in_array($file_ext, $allowed_extensions)) {
+        echo '<div class="alert alert-danger m-3">Error: File type <b>.' . $file_ext . '</b> is not allowed.</div>';
+    } else {
+        // Gestion des doublons : ajouter un timestamp si le fichier existe
+        if (file_exists($target_file)) {
+            $filename = time() . "_" . $filename;
+            $target_file = $target_dir . $filename;
         }
-    }
-    
-    if ($upload_successful) {
-        echo '<meta http-equiv="refresh" content="0; url=files.php">';
-        exit;
+
+        if (move_uploaded_file($file['tmp_name'], $target_file)) {
+            $db_path = "uploads/files/" . $filename;
+            
+            // Insertion BDD
+            $stmt = mysqli_prepare($connect, "INSERT INTO files (filename, path, created_at) VALUES (?, ?, NOW())");
+            mysqli_stmt_bind_param($stmt, "ss", $filename, $db_path);
+            
+            if (mysqli_stmt_execute($stmt)) {
+                echo '<div class="alert alert-success m-3">File uploaded successfully! Redirecting...</div>';
+                echo '<meta http-equiv="refresh" content="1; url=files.php">';
+                exit;
+            } else {
+                echo '<div class="alert alert-danger m-3">Database error: ' . mysqli_error($connect) . '</div>';
+            }
+            mysqli_stmt_close($stmt);
+        } else {
+            echo '<div class="alert alert-danger m-3">Sorry, there was an error moving your file. Check folder permissions.</div>';
+        }
     }
 }
 ?>
@@ -74,41 +60,92 @@ if (isset($_POST['upload'])) {
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-sm-6">
-                <h1 class="m-0"><i class="fas fa-upload"></i> Upload File</h1>
+                <h1 class="m-0"><i class="fas fa-cloud-upload-alt"></i> Upload File</h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
                     <li class="breadcrumb-item"><a href="dashboard.php">Home</a></li>
                     <li class="breadcrumb-item"><a href="files.php">Files</a></li>
-                    <li class="breadcrumb-item active">Upload File</li>
+                    <li class="breadcrumb-item active">Upload</li>
                 </ol>
             </div>
         </div>
     </div>
 </div>
+
 <section class="content">
     <div class="container-fluid">
-        
-        <div class="card card-primary card-outline">
-            <div class="card-header">
-              <h3 class="card-title">Upload File to Server</h3>
-            </div>
-            <form action="" method="post" enctype="multipart/form-data">
-                <div class="card-body">
-                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                    <div class="form-group">
-                        <label>File</label>
-                        <input type="file" name="file" class="form-control" required />
-                        <small class="text-muted">Allowed types: png, gif, jpg, jpeg, bmp, doc, docx, pdf, txt, rar, zip, odt, rtf, csv, ods, xls, xlsx, odp, ppt, pptx, mp3, flac, wav, wma, aac, m4a, mov, avi, mkv, mp4, wmv, webm, ts, webp.</small>
+        <form action="" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            
+            <div class="row">
+                <div class="col-lg-8 col-md-12">
+                    <div class="card card-primary card-outline">
+                        <div class="card-header">
+                            <h3 class="card-title">Select File</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Choose File from Computer</label>
+                                <div class="custom-file">
+                                    <input type="file" class="custom-file-input" id="customFile" name="file" required>
+                                    <label class="custom-file-label" for="customFile">Choose file</label>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-light border mt-3">
+                                <i class="fas fa-info-circle text-info"></i> 
+                                Files will be saved in <code>/uploads/files/</code> folder.
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" name="upload" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Upload Now
+                            </button>
+                            <a href="files.php" class="btn btn-default float-right">Cancel</a>
+                        </div>
                     </div>
                 </div>
-                <div class="card-footer">
-                    <input type="submit" name="upload" class="btn btn-primary" value="Upload" />
-                </div>
-            </form>
-        </div>
 
-    </div></section>
-<?php
-include "footer.php";
-?>
+                <div class="col-lg-4 col-md-12">
+                    <div class="card card-info">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-check-circle"></i> Allowed Formats</h3>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush small">
+                                <li class="list-group-item">
+                                    <strong>Images:</strong> png, gif, jpg, jpeg, bmp, webp
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Documents:</strong> doc, docx, pdf, txt, odt, rtf, csv, ods, xls, xlsx, odp, ppt, pptx
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Archives:</strong> rar, zip
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Audio:</strong> mp3, flac, wav, wma, aac, m4a
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Video:</strong> mov, avi, mkv, mp4, wmv, webm, ts
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+<?php include "footer.php"; ?>
+
+<script>
+$(document).ready(function() {
+    // Afficher le nom du fichier sélectionné
+    $('.custom-file-input').on('change', function() {
+        var fileName = $(this).val().split('\\').pop();
+        $(this).next('.custom-file-label').addClass("selected").html(fileName);
+    });
+});
+</script>

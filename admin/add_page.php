@@ -3,50 +3,37 @@ include "header.php";
 
 if (isset($_POST['add'])) {
     
-    // --- NOUVEL AJOUT : Validation CSRF ---
+    // --- Validation CSRF ---
     validate_csrf_token();
-    // --- FIN AJOUT ---
 
     $title   = $_POST['title'];
-    $slug    = generateSeoURL($title, 0);
+    $slug    = generateSeoURL($title); 
     $content = $_POST['content'];
-    $active  = $_POST['active']; // Nouveau champ
+    $active  = $_POST['active']; 
 
-    // Use prepared statements to prevent SQL injection
+    // Vérification si le titre existe déjà
     $stmt = mysqli_prepare($connect, "SELECT title FROM `pages` WHERE title=? LIMIT 1");
     mysqli_stmt_bind_param($stmt, "s", $title);
     mysqli_stmt_execute($stmt);
     $queryvalid = mysqli_stmt_get_result($stmt);
     mysqli_stmt_close($stmt);
 
-    $validator = mysqli_num_rows($queryvalid);
-    if ($validator > 0) {
+    if (mysqli_num_rows($queryvalid) > 0) {
         echo '
-            <div class="alert alert-warning alert-dismissible">
+            <div class="alert alert-warning alert-dismissible m-3">
                 <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
                 <h5><i class="icon fas fa-exclamation-triangle"></i> Warning!</h5>
                 Page with this name has already been added.
             </div>';
     } else {
+        // Insertion
         $stmt = mysqli_prepare($connect, "INSERT INTO pages (title, slug, content, active) VALUES (?, ?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "ssss", $title, $slug, $content, $active);
         mysqli_stmt_execute($stmt);
-        $page_id = mysqli_insert_id($connect); // Get the ID of the new page
         mysqli_stmt_close($stmt);
-
-        // N'ajouter au menu que si la page est publiée
-        if ($page_id && $active == 'Yes') {
-            $menu_page = $title;
-            $menu_path = 'page?name=' . $slug;
-            $menu_icon = 'fa-columns';
-
-            $stmt = mysqli_prepare($connect, "INSERT INTO menu (page, path, fa_icon) VALUES (?, ?, ?)");
-            mysqli_stmt_bind_param($stmt, "sss", $menu_page, $menu_path, $menu_icon);
-            mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
-        }
-
-        echo '<meta http-equiv="refresh" content="0;url=pages.php">';
+        
+        echo '<div class="alert alert-success m-3">Page created successfully! Redirecting...</div>';
+        echo '<meta http-equiv="refresh" content="1;url=pages.php">';
         exit;
     }
 }
@@ -56,7 +43,7 @@ if (isset($_POST['add'])) {
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-sm-6">
-                <h1 class="m-0"><i class="fas fa-file-alt"></i> Add Page</h1>
+                <h1 class="m-0"><i class="fas fa-file-alt"></i> Add New Page</h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
@@ -68,39 +55,65 @@ if (isset($_POST['add'])) {
         </div>
     </div>
 </div>
+
 <section class="content">
     <div class="container-fluid">
-
-        <div class="card card-primary card-outline">
-            <div class="card-header">
-                <h3 class="card-title">New Page Details</h3>
-            </div>         
-            <form action="" method="post">
-                <div class="card-body">
-                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                    <div class="form-group">
-                        <label>Title</label>
-                        <input class="form-control" name="title" value="" type="text" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Content</label>
-                        <textarea class="form-control" id="summernote" name="content" required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Status</label>
-                        <select name="active" class="form-control" required>
-                            <option value="Yes" selected>Published</option>
-                            <option value="No">Draft</option>
-                        </select>
+        <form action="" method="post">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            
+            <div class="row">
+                <div class="col-lg-9 col-md-12">
+                    <div class="card card-primary card-outline">
+                        <div class="card-header">
+                            <h3 class="card-title">Page Content</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Title</label>
+                                <input class="form-control form-control-lg" name="title" type="text" placeholder="Enter page title" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Content</label>
+                                <textarea class="form-control" id="summernote" name="content" rows="15" required></textarea>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="card-footer">
-                    <input type="submit" name="add" class="btn btn-primary" value="Add" />
-                </div>
-            </form>                            
-        </div>
 
-    </div></section>
-<?php
-include "footer.php";
-?>
+                <div class="col-lg-3 col-md-12">
+                    
+                    <div class="card card-success card-outline">
+                        <div class="card-header">
+                            <h3 class="card-title">Publish</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select name="active" class="form-control" required>
+                                    <option value="Yes" selected>Published</option>
+                                    <option value="No">Draft</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" name="add" class="btn btn-primary btn-block">
+                                <i class="fas fa-plus"></i> Create Page
+                            </button>
+                            <a href="pages.php" class="btn btn-default btn-block">Cancel</a>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+$(document).ready(function() {
+    // Summernote est activé automatiquement par footer.php s'il détecte #summernote
+});
+</script>
+
+<?php include "footer.php"; ?>
