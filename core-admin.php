@@ -6,7 +6,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 $configfile = __DIR__ . '/config.php';
 if (!file_exists($configfile)) {
     // Si config.php n'existe pas, on ne peut rien faire.
-    die("Erreur critique : Fichier config.php introuvable. Veuillez lancer l'installation.");
+    die("Critical error: config.php file not found. Please start the installation.");
 }
 
 // --- Démarrage de la session ---
@@ -33,10 +33,10 @@ if ($stmt_settings) {
     }
     mysqli_stmt_close($stmt_settings);
     if (!$settings) {
-         die("Erreur critique : Impossible de charger les paramètres du site.");
+         die("Critical error: Unable to load site settings.");
     }
 } else {
-    die("Erreur critique : Impossible de préparer la requête des paramètres.");
+    die("Critical error: Unable to prepare settings query.");
 }
 
 // --- Nettoyage des données (minimal) ---
@@ -65,7 +65,7 @@ if (!isset($_SESSION['sec-username'])) {
 // --- Fonction de validation CSRF ---
 function validate_csrf_token() {
     if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
-        die('Erreur de validation (jeton CSRF). La session a peut-être expiré. Veuillez recharger la page.');
+        die('Validation error (CSRF token). The session may have expired. Please reload the page.');
     }
 }
 

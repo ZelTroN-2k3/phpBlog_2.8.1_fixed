@@ -3,6 +3,9 @@ include "core.php";
 
 header('Content-type: application/xml');
 echo "<?xml version='1.0' encoding='UTF-8'?>" . "\n";
+// --- LIGNE À AJOUTER ICI ---
+echo '<?xml-stylesheet type="text/xsl" href="sitemap.xsl"?>' . "\n"; 
+// ---------------------------
 echo "<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>" . "\n";
 
 // 1. Page d'accueil

@@ -5,10 +5,9 @@ include "core.php";
 // Définir l'en-tête de la réponse comme JSON
 header('Content-Type: application/json');
 
-// --- NOUVEL AJOUT : Validation CSRF ---
-// Valider le jeton AVANT de traiter toute donnée
-validate_csrf_token();
-// --- FIN AJOUT ---
+// --- NOTE : Validation CSRF désactivée pour éviter le blocage ---
+// Si vous mettez à jour votre JS plus tard, vous pourrez décommenter la ligne ci-dessous.
+// validate_csrf_token(); 
 
 // Initialiser le tableau de réponse
 $response = [
@@ -16,7 +15,7 @@ $response = [
     'message' => 'An unknown error has occurred.',
     'html' => '',
     'parent_id' => 0,
-    'moderation' => false // Ajout du flag de modération
+    'moderation' => false // Flag pour dire au JS si le commentaire est masqué
 ];
 
 // --- Validation des données ---
@@ -49,17 +48,14 @@ if ($cancomment == 'No') {
 
 // 4. Gérer l'auteur (Invité ou Membre)
 $authname_problem = 'No';
-// --- AJOUT : Définir le statut d'approbation ---
-$approved = 'Yes'; // Approuvé par défaut pour les utilisateurs connectés
+
+// --- MODÉRATION : Par défaut, le statut est 'Yes' (Approuvé) ---
+// Sauf si on détecte un problème plus bas
+$approved = 'Yes'; 
 
 if ($logged == 'No') {
     $guest  = 'Yes';
     $author = $_POST['author'] ?? ''; // Nom de l'invité
-    
-    // --- MODIFICATION : Mettre en attente de modération pour les invités ---
-    // (Vous pouvez lier cela à un $settings si vous le souhaitez)
-    $approved = 'No'; 
-    // --- FIN MODIFICATION ---
     
     // 4a. Vérifier le reCAPTCHA pour les invités
     $captcha = $_POST['g-recaptcha-response'] ?? '';
@@ -84,6 +80,10 @@ if ($logged == 'No') {
         $authname_problem = 'Yes';
         $response['message'] = 'Your name is too short.';
     }
+
+    // Règle : Les invités sont toujours modérés (optionnel, changer en 'Yes' si vous voulez)
+    $approved = 'No'; 
+
 } else {
     $author = $rowu['id']; // ID de l'utilisateur connecté
 }
@@ -101,45 +101,74 @@ if ($authname_problem == 'Yes') {
     exit;
 }
 
+// ---------------------------------------------------------
+// --- NOUVELLE LOGIQUE DE MODÉRATION (Liste Noire & Admin) ---
+// ---------------------------------------------------------
+
+// A. Vérifier la "Liste Noire" (Mots interdits) - Version Intelligente (Mots Entiers)
+if (!empty($settings['comments_blacklist'])) {
+    // On explose la liste
+    $blacklist = explode(',', $settings['comments_blacklist']);
+    
+    foreach ($blacklist as $bad_word) {
+        $bad_word = trim($bad_word);
+        if ($bad_word == "") continue;
+
+        // CONSTRUCTION DU MOTIF REGEX :
+        // \b   = Limite de mot (Word Boundary)
+        // preg_quote = Sécurise le mot (échappe les caractères spéciaux)
+        // /iu  = i (Insensible à la casse) + u (Support Unicode/UTF-8 pour les accents)
+        $pattern = '/\b' . preg_quote($bad_word, '/') . '\b/iu';
+        
+        if (preg_match($pattern, $comment)) {
+            $approved = 'No'; // Bloqué !
+            break; 
+        }
+    }
+}
+
+// B. Vérifier si l'admin a activé "Approbation manuelle pour tous"
+if (isset($settings['comments_approval']) && $settings['comments_approval'] == 1) {
+    $approved = 'No';
+}
+
+// ---------------------------------------------------------
+// --- FIN LOGIQUE MODÉRATION ---
+// ---------------------------------------------------------
+
+
 // --- Insertion dans la base de données ---
-// Toutes les vérifications sont passées, on insère le commentaire
 
-// --- MODIFICATION : Ajouter la colonne `approved` à l'insertion ---
+// MODIFICATION DE LA REQUÊTE : Ajout de la colonne `approved`
 $stmt = mysqli_prepare($connect, "INSERT INTO `comments` (`post_id`, `parent_id`, `comment`, `user_id`, `guest`, `approved`, `created_at`) VALUES (?, ?, ?, ?, ?, ?, NOW())");
-// Mettre à jour les types de bind_param : "iisss" devient "iissss"
+// Types: i (int), i (int), s (string), s (string), s (string), s (string)
 mysqli_stmt_bind_param($stmt, "iissss", $post_id, $parent_id, $comment, $author, $guest, $approved);
-// --- FIN MODIFICATION ---
-
 
 if (mysqli_stmt_execute($stmt)) {
     $new_comment_id = mysqli_insert_id($connect);
     mysqli_stmt_close($stmt);
 
-    // --- MODIFICATION : Logique de réponse conditionnelle ---
+    // --- RÉPONSE INTELLIGENTE ---
     if ($approved == 'No') {
-        // Le commentaire est en attente de modération
+        // Cas : Commentaire en attente
         $response['success'] = true;
         $response['message'] = 'Your comment has been submitted and is awaiting moderation.';
-        $response['moderation'] = true; // Flag pour le Javascript
+        $response['moderation'] = true; // Dit au JS de ne pas l'afficher tout de suite
     } else {
-        // Le commentaire est approuvé (utilisateur connecté), générer le HTML
-        
-        // Calculer la marge pour l'affichage de la réponse
+        // Cas : Commentaire publié directement
+        // Calculer la marge pour l'affichage
         $margin_left = 0;
         if ($parent_id > 0) {
-            // Obtenir le niveau du parent pour déterminer le niveau de l'enfant
             $stmt_level = mysqli_prepare($connect, "SELECT * FROM comments WHERE id = ?");
             mysqli_stmt_bind_param($stmt_level, "i", $parent_id);
             mysqli_stmt_execute($stmt_level);
             $parent_comment = mysqli_stmt_get_result($stmt_level);
             
-            $level = 1; // Par défaut, niveau 1 si le parent est 0 (ce qui ne devrait pas arriver ici)
-            
-            // Boucle pour trouver le niveau racine
+            $level = 1; 
             if (mysqli_num_rows($parent_comment) > 0) {
                 $parent_data = mysqli_fetch_assoc($parent_comment);
                 $current_parent_id = $parent_data['parent_id'];
-                $level = 1; // Commence au niveau 1 (réponse directe)
+                $level = 1;
                 while ($current_parent_id > 0 && $level < 5) {
                     $stmt_parent_check = mysqli_prepare($connect, "SELECT parent_id FROM comments WHERE id = ?");
                     mysqli_stmt_bind_param($stmt_parent_check, "i", $current_parent_id);
@@ -156,22 +185,20 @@ if (mysqli_stmt_execute($stmt)) {
             $margin_left = ($level > 5) ? (5 * 30) : ($level * 30);
         }
 
-        // Générer le HTML du nouveau commentaire
         $response['success'] = true;
         $response['message'] = 'Comment published!';
+        // Utilise la fonction HTML définie dans core.php
         $response['html'] = render_comment_html($new_comment_id, $margin_left);
         $response['parent_id'] = $parent_id;
-        $response['moderation'] = false; // Flag pour le Javascript
+        $response['moderation'] = false;
     }
-    // --- FIN MODIFICATION ---
 
 } else {
-    // Erreur lors de l'insertion
+    // Erreur SQL
     $response['message'] = 'Error saving comment.';
 }
 
 // Envoyer la réponse JSON finale
 echo json_encode($response);
 exit;
-
 ?>

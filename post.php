@@ -338,7 +338,7 @@ if ($cancomment == 'Yes') {
 <?php
     }
 ?>
-                        <div class="form-group mb-3">
+                        <div id="comment-message" class="form-group mb-3">
                             <label for="comment"><i class="fa fa-comment"></i> Comment:</label>
                             <textarea name="comment" id="comment" rows="5" class="form-control" maxlength="1000" oninput="countText()" required></textarea>
                             <small class="form-text text-muted">
@@ -365,6 +365,11 @@ if ($cancomment == 'Yes') {
     echo '<div class="alert alert-info">Please <strong><a href="login"><i class="fas fa-sign-in-alt"></i> Sign In</a></strong> to be able to post a comment.</div>';
 }
 ?>
+
+        <!-- ADVERTISEMENT WIDGET -->
+        <?php render_ad('468x60'); ?> <!-- Affichage de la publicité 468x60 -->
+        <?php render_ad('728x90'); ?> <!-- Affichage de la publicité 728x90 -->
+        <!-- FIN ADVERTISEMENT WIDGET -->
                     </div>
                     </div>
                 </div>
